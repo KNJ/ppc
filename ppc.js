@@ -367,6 +367,23 @@ ppc.manager = gs(base, {
 	calc: function(){
 		ppc.logger.get('add', '計算を開始しました');
 
+		// 各パラメータ合計
+		var rated_sum = ppc.math.get('sum', ppc.illusts, 'rated'),
+		scored_sum = ppc.math.get('sum', ppc.illusts, 'scored'),
+		commented_sum = ppc.math.get('sum', ppc.illusts, 'commented'),
+		viewed_sum = ppc.math.get('sum', ppc.illusts, 'viewed'),
+		bookmarked_sum = ppc.math.get('sum', ppc.illusts, 'bookmarked_total'),
+		bookmarked_public_sum = ppc.math.get('sum', ppc.illusts, 'bookmarked_public'),
+		hot_sum = ppc.math.get('sum', ppc.illusts, 'hot');
+
+		ppc.user.set('rated_sum', rated_sum);
+		ppc.user.set('scored_sum', scored_sum);
+		ppc.user.set('commented_sum', commented_sum);
+		ppc.user.set('viewed_sum', viewed_sum);
+		ppc.user.set('bookmarked_sum', bookmarked_sum);
+		ppc.user.set('bookmarked_public_sum', bookmarked_public_sum);
+		ppc.user.set('hot_sum', hot_sum | 0);
+
 		try {
 			var now = ppc.user.get('now'),
 			illusts = ppc.user.get('illusts'),
@@ -426,7 +443,7 @@ ppc.manager = gs(base, {
 
 			}
 
-			pixiv_power = ppc.math.get('pixivPower', followers, my_pixiv, total_power);
+			pixiv_power = ppc.math.get('pixivPower', followers, my_pixiv, total_power, hot_sum);
 			ppc.user.set('total_power', Math.ceil(total_power));
 			ppc.user.set('pixiv_power', Math.ceil(pixiv_power));
 
@@ -822,8 +839,8 @@ ppc.math = gs(base, {
 	freshment: function(interval_average, interval){
 		return 1 / Math.pow((12 / (interval_average + 5) + 1), (interval / (1000 * 60 * 60 * 24 * 365)).toFixed(4));
 	},
-	pixivPower: function(followers, my_pixiv, total_power){
-		return (followers * 0.0001 + my_pixiv * 0.001 + 1) * total_power;
+	pixivPower: function(followers, my_pixiv, total_power, hot_sum){
+		return (followers * 0.0001 + my_pixiv * 0.001 + 1) * total_power + Number(hot_sum);
 	},
 	sum: function(a, prop){
 		var sum = 0;
@@ -1097,23 +1114,6 @@ ppc.old = gs(base, {
 
 			$('.sort-by.sort-by-id').addClass('desc').addClass('active').find('.fa-sort-numeric-desc').css('display', 'inline');
 			ppc.old.get('arrange', ppc.constants.get('sort_keys').get('id'), ppc.illusts, 'desc');
-
-			// 各パラメータ合計
-			var rated_sum = ppc.math.get('sum', ppc.illusts, 'rated'),
-			scored_sum = ppc.math.get('sum', ppc.illusts, 'scored'),
-			commented_sum = ppc.math.get('sum', ppc.illusts, 'commented'),
-			viewed_sum = ppc.math.get('sum', ppc.illusts, 'viewed'),
-			bookmarked_sum = ppc.math.get('sum', ppc.illusts, 'bookmarked_total'),
-			bookmarked_public_sum = ppc.math.get('sum', ppc.illusts, 'bookmarked_public');
-			hot_sum = ppc.math.get('sum', ppc.illusts, 'hot');
-
-			ppc.user.set('rated_sum', rated_sum);
-			ppc.user.set('scored_sum', scored_sum);
-			ppc.user.set('commented_sum', commented_sum);
-			ppc.user.set('viewed_sum', viewed_sum);
-			ppc.user.set('bookmarked_sum', bookmarked_sum);
-			ppc.user.set('bookmarked_public_sum', bookmarked_public_sum);
-			ppc.user.set('hot_sum', hot_sum | 0);
 
 			var message_start = ppc.user.get('guest_profile').PpcMessage.start,
 			message_end = ppc.user.get('guest_profile').PpcMessage.end;
