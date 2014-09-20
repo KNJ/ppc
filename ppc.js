@@ -1129,9 +1129,9 @@ ppc.old = gs(base, {
 			.prepend($('<div>', {id: 'ppc_bottom'}))
 			.prepend(
 				$('<div>', {id: 'ppc'})
-				.append($('<div>', {class: 'message-start', text: message_start}))
+				.append($('<div>', {class: 'message-start', html: message_start}))
 				.append($('<div>', {id: 'result', text: 0}))
-				.append($('<div>', {class: 'message-end', text: message_end}))
+				.append($('<div>', {class: 'message-end', html: message_end}))
 			)
 			.prepend($('<div>', {id: 'ppc_top'}));
 
