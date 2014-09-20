@@ -29,8 +29,8 @@ pixivパワーチェッカーは、pixivにおける自分の影響力を測定�
 
 以下のライブラリに依存しています。
 
-- [jQuery](jquery.com)
-- [jQuery UI](jqueryui.com)
+- [jQuery](http://jquery.com)
+- [jQuery UI](http://jqueryui.com)
 - [Font Awesome by Dave Gandy](http://fontawesome.io)
 
 上記の他、eshies.netからHTMLテンプレートやスタイルシートなどの必要ファイルを取り出しています。
