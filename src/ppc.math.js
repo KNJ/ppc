@@ -19,15 +19,21 @@ ppc.math = gs(base, {
 		});
 		return sum;
 	},
-	standardDeviation: function(illusts, total_power, count){
-		var sigma = 0;
-		$.each(illusts, function(i, v){
-			sigma += Math.pow((v.get('power') - total_power / count), 2);
+	standardDeviation: function(dataset, prop, sum){
+
+		var l = dataset.length, sigma = 0;
+
+		$.each(dataset, function(i, v){
+			sigma += Math.pow((v.get(prop) - sum / l), 2);
 		});
-		return Math.sqrt(sigma / count);
+
+		return Math.sqrt(sigma / l);
+
 	},
-	deviation: function(sd, power, power_average){
-		return (10 * ( power - power_average ) / sd + 50).toFixed(1);
+	deviation: function(sd, val, average){
+
+		return (10 * ( val - average ) / sd + 50).toFixed(1);
+
 	},
 });
 

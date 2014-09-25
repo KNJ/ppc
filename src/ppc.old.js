@@ -335,7 +335,7 @@ ppc.old = gs(base, {
 					.find('tr').not(':first').filter(':even').css('backgroundColor', '#f3f3f3');
 
 				// 標準偏差
-				var sd = ppc.math.get('standardDeviation', illusts, total_power, count);
+				var sd = ppc.math.get('standardDeviation', illusts, 'power', total_power);
 
 				$.each(illusts, function(i, v){
 					var deviation = ppc.math.get('deviation', sd, v.get('power'), total_power / count),
