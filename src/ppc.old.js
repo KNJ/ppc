@@ -334,20 +334,40 @@ ppc.old = gs(base, {
 						.end()
 					.find('tr').not(':first').filter(':even').css('backgroundColor', '#f3f3f3');
 
-				// 標準偏差
-				var sd = ppc.math.get('standardDeviation', illusts, 'power', total_power);
+				// パワー標準偏差、HOT標準偏差
+				var sd_power = ppc.math.get('standardDeviation', illusts, 'power', total_power),
+				sd_hot = ppc.math.get('standardDeviation', illusts, 'hot', ppc.user.get('hot_sum'));
+
+				var dataset = [];
 
 				$.each(illusts, function(i, v){
-					var deviation = ppc.math.get('deviation', sd, v.get('power'), total_power / count),
-						$illust_report = ppc.parser.home.get('$illust_report', i);
-					v.set('deviation', deviation);
+					var data = {};
+
+					var dv_power = ppc.math.get('deviation', sd_power, v.get('power'), total_power / count),
+					dv_hot = ppc.math.get('deviation', sd_hot, v.get('hot'), ppc.user.get('hot_sum') / count),
+					$illust_report = ppc.parser.home.get('$illust_report', i);
+
+					v.set('dv_power', dv_power);
+					v.set('dv_hot', dv_hot);
 					$illust_report.append('<span class="report-link">鮮度&nbsp;<span class="count">' + v.get('freshment').toFixed(2) + '</span></span>');
 					$illust_report.append('<span class="report-link">パワー&nbsp;<span class="count">' + v.get('power') + '</span></span>');
-					$illust_report.append('<span class="report-link">偏差値&nbsp;<span class="count">' + v.get('deviation') + '</span></span>');
+					$illust_report.append('<span class="report-link">偏差値&nbsp;<span class="count">' + dv_power + '</span></span>');
 					$illust_report.append('<span class="report-link">タグ数&nbsp;<span class="count">' + ppc.utility.get('tags_num', v.get('tags_num_total'), v.get('tags_num_self')) + '</span></span>');
-					$('.display-report').eq(i).css('border-color', ppc.utility.get('color', v.get('deviation')));
+					$('.display-report').eq(i).css('border-color', ppc.utility.get('color', dv_power));
 					$('.display_works>ul>li').eq(i).find('.bookmark-count:first').html('<i class="_icon sprites-bookmark-badge"></i>' + v.get('bookmarked_total') + ' (' + v.get('bookmarked_public') + ' + ' + v.get('bookmarked_private') + ')');
+
+					/*
+					var timestamp_a = v.get('timestamp').split(' ');
+					data.date = timestamp_a[0];
+					data.time = timestamp_a[1];
+					data.dv_power = dv_power;
+					data.dv_hot = dv_hot;
+					dataset.push(data);
+					*/
+
 				});
+
+				// console.log(dataset.toSource());
 
 			}
 			catch (e) {
