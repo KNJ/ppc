@@ -1,5 +1,10 @@
 (function($){
 
+if ($('#buttons').length) {
+    alert('ページを再読み込みしてから実行してください。');
+    return;
+}
+
 if (location.href !== 'http://www.pixiv.net/member_illust.php' && location.href !== 'http://www.pixiv.net/member_illust.php?res=full' && location.href !== 'http://www.pixiv.net/member_illust.php?res=all') {
 	alert('http://www.pixiv.net/member_illust.php\nまたは\nhttp://www.pixiv.net/member_illust.php?res=full\nで実行してください。');
 	return;
@@ -63,11 +68,6 @@ $('a', $leftColumn).attr('target', '_blank');
 $('.display_works>ul>li>span').wrap('<div class="status" />');
 
 ppc.renderer.get('removeAds');
-
-if ($('#message').length) {
-    alert('ページを再読み込みしてから実行してください。');
-    return;
-}
 
 $rightColumn.wrapInner('<div id="works" />');
 $rightColumn.wrap('<div id="tab_group" />');
