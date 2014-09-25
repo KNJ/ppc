@@ -53,6 +53,8 @@ var gs = function(base, ex){
 	return derived;
 };
 
+var ppc = ppc || {};
+
 (function($){
 
 if (location.href !== 'http://www.pixiv.net/member_illust.php' && location.href !== 'http://www.pixiv.net/member_illust.php?res=full' && location.href !== 'http://www.pixiv.net/member_illust.php?res=all') {
@@ -60,7 +62,7 @@ if (location.href !== 'http://www.pixiv.net/member_illust.php' && location.href 
 	return;
 }
 
-var ppc = {}, base = {};
+var base = {};
 
 // 管理者設定 (static)
 ppc.admin = gs(base, {
