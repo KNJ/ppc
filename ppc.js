@@ -2,7 +2,7 @@
  * @copyright (c) 2014 KNJ | THE MIT License | https://github.com/KNJ/ppc/blob/master/LICENSE
  */
 
- // 文字列から数字を抜き出す
+// 文字列から数字を抜き出す
 String.prototype.number = function(i){
 	if (i === null) {
 		return this.match(/\d{1,}/g);
@@ -53,16 +53,25 @@ var gs = function(base, ex){
 	return derived;
 };
 
+$.fn.extend({
+	// HTMLの呼び出し
+	appendHtml: function(page, func){
+		var target = this;
+		$.getJSON(ppc.uri.get('ajax') + '/page/' + page + '?callback=?', {}, function(data){
+			$(data.html).appendTo(target);
+			func();
+		});
+	},
+	appendTab: function(text, anchor){
+		return this.append($('<li>').prepend(($('<a>').attr('href', anchor)).prepend($('<span>').text(text))));
+	}
+});
+
 var ppc = ppc || {};
-
-(function($){
-
-if (location.href !== 'http://www.pixiv.net/member_illust.php' && location.href !== 'http://www.pixiv.net/member_illust.php?res=full' && location.href !== 'http://www.pixiv.net/member_illust.php?res=all') {
-	alert('http://www.pixiv.net/member_illust.php\nまたは\nhttp://www.pixiv.net/member_illust.php?res=full\nで実行してください。');
-	return;
-}
-
 var base = {};
+var $ppc_result = $('<div>').attr('id', 'ppc_result');
+
+(function(){
 
 // 管理者設定 (static)
 ppc.admin = gs(base, {
@@ -76,6 +85,27 @@ ppc.admin = gs(base, {
 	min_illusts: 20, // 測定対象下限数
 	suspended: false,
 });
+
+})();
+
+(function(){
+
+// URI (static)
+ppc.uri = gs(base, {
+	works_all: 'http://www.pixiv.net/member_illust.php',
+	illust: function(id){ return 'http://www.pixiv.net/member_illust.php?mode=medium&illust_id=' + id; },
+	illust_bookmarks: function(id){ return 'http://www.pixiv.net/bookmark_detail.php?illust_id=' + id; },
+	home: function(){ return 'http://' + ppc.admin.get('domain'); },
+	css: function(){ return this.get('home') + '/css/ppc'; },
+	img: function(){ return this.get('home') + '/img/ppc'; },
+	guest: function(){ return this.get('home') + '/ppc/ajax/guest'; },
+	record: function(){ return this.get('home') + '/ppc/ajax/record'; },
+	ajax: function(){ return this.get('home') + '/ppc/ajax'; },
+});
+
+})();
+
+(function(){
 
 // ユーザー設定 (static)
 ppc.user = gs(base, {
@@ -97,6 +127,215 @@ ppc.user = gs(base, {
 	release: 0, // 公開レベル
 });
 
+})();
+
+(function(){
+
+// Ajax
+ppc.ajax = gs(base, {
+	url: null,
+	type: 'GET',
+	data_type: 'html',
+	cache: false,
+	load: function(index){
+		var self = this,
+			url = this.get('url'),
+			type = this.get('type'),
+			data_type = this.get('data_type'),
+			cache = this.get('cache');
+		$.ajax({
+			url: url,
+			type: type,
+			data_type: data_type,
+			cache: cache,
+			beforeSend: function(){
+				ppc.logger.get('add', 'リクエストを送信しました -> ' + url, 0);
+				self.get('_beforeFilter');
+			},
+			success: function(data){
+				ppc.logger.get('add', 'レスポンスを受信しました <- ' + url, 0);
+				self.get('_afterFilter', data, index);
+			},
+			error: function(){
+				ppc.logger.get('add', 'レスポンスを受信できませんでした - ' + url, 3);
+			},
+		});
+	},
+	_beforeFilter: function(){},
+	_afterFilter: function(){},
+});
+
+// ajax - イラスト情報をスクレイピング
+ppc.ajax.illust = gs(ppc.ajax, {
+	active: 0,
+	complete: 0,
+	index: 0,
+	connections: null,
+	illusts: null,
+	init: function(){
+		ppc.logger.get('add', 'Ajaxの初期化を開始しました', 0);
+
+		try {
+			this.set('active', 0);
+			this.set('complete', 0);
+			this.set('index', 0);
+			this.set('connections', ppc.user.get('connections'));
+			this.set('illusts', ppc.user.get('illusts'));
+		}
+		catch (e) {
+			ppc.logger.get('error', e);
+			return false;
+		}
+
+		ppc.logger.get('add', 'Ajaxの初期化を終了しました', 0);
+
+		return true;
+	},
+	run: function(){
+		ppc.logger.get('add', 'Sequential Ajaxを開始しました', 0);
+
+		try {
+			// 最初のAjaxをアクティブにする
+			this.set('url', ppc.illusts[0].get('url_bookmarks'));
+			this.get('_activate');
+		}
+		catch (e){
+			ppc.logger.get('error', e);
+			return false;
+		}
+
+		return true;
+	},
+	_activate: function(){
+		var i = this.get('index');
+		// すべてのAjaxが開始しているまたはアクティブ数が接続数以上になる場合はこれ以上アクティブにしない
+		if (i >= this.get('illusts') || this.get('active') >= this.get('connections')) {
+			// このスコープでの処理は理論上1回しか起こらない
+
+			// インデクスを1つ減らす
+			this.set('index', i - 1);
+			return true;
+		}
+		else {
+			// アクティブ数を1つ増やす
+			var a = this.get('active');
+			this.set('active', a + 1);
+
+			this.get('load', i);
+
+			if (i + 1 !== this.get('illusts')) {
+
+				// インデクスを1つ増やす
+				j = this.set('index', i + 1);
+
+				// Ajaxをアクティブにする
+				this.set('url', ppc.illusts[j].get('url_bookmarks'));
+				this.get('_activate');
+				return false;
+			}
+
+			return true;
+		}
+	},
+	_afterFilter: function(html, i){
+		try {
+			var j = this.get('index');
+
+			// 取得したHTMLを保存
+			ppc.illusts[i].set('html', html);
+
+			// アクティブ数を1つ減らす
+			var a = this.get('active');
+			this.set('active', a - 1);
+
+			// 完了数を1つ増やす
+			var c = this.get('complete');
+			this.set('complete', c + 1);
+
+			// すべてのAjaxが開始していなければ次のAjaxへ移る
+			if (j + 1  < this.get('illusts')) {
+
+				// インデクスを1つ増やす
+				k = this.set('index', j + 1);
+
+				// Ajaxをアクティブにする
+				this.set('url', ppc.illusts[k].get('url_bookmarks'));
+				this.get('_activate');
+				return;
+			}
+
+			// すべてのAjaxが完了していればManagerに伝える
+			if (this.get('complete') === this.get('illusts')) {
+				ppc.logger.get('add', 'Sequential Ajaxを完了しました', 0);
+				ppc.manager.get('finish');
+			}
+
+			return;
+		}
+		catch (e) {
+			ppc.logger.get('error', e);
+			return;
+		}
+
+	},
+});
+
+// ajax - フォロワー数やマイピク数をスクレイピング
+ppc.ajax.follower = gs(ppc.ajax, {
+	url: 'http://www.pixiv.net/bookmark.php?type=reg_user',
+	_afterFilter: function(html){
+		try {
+			ppc.parser.follower.set('$doc', $(html));
+			var followers = ppc.parser.follower.get('text', 'followers'),
+			my_pixiv = ppc.parser.follower.get('text', 'my_pixiv');
+
+			if (!my_pixiv) {
+				my_pixiv = '0';
+			}
+			ppc.user.set('followers', followers.number(0));
+			ppc.user.set('my_pixiv', my_pixiv.number(0));
+		}
+		catch (e) {
+			ppc.logger.get('error', e);
+			return false;
+		}
+
+		// 完了をManagerに伝え、計算に入る
+		ppc.manager.get('calc');
+
+		return true;
+	},
+});
+
+// ajax - 2ページ目
+ppc.ajax.page2 = gs(ppc.ajax, {
+	url: ppc.uri.get('works_all') + '?res=' + ppc.user.get('scope') + '&p=2',
+	// 2ページ目をつなげる
+	_afterFilter: function(data){
+		var $html = $(data).find('.display_works:first').clone();
+
+		ppc.renderer.get('render').get('at', '.display_works', $html);
+		this.get('_drop');
+		ppc.renderer.get('activateStartButton');
+		ppc.logger.get('add', '2ページ目の作品を追加しました');
+	},
+	// 測定対象外の余剰分を落とす
+	_drop: function(){
+		try {
+			for (var i = ppc.parser.home.get('length', 'illust'); i > ppc.admin.get('max_illusts'); i--) {
+				ppc.parser.home.get('illust_jq', i - 1).remove();
+			}
+		}
+		catch (e) {
+			ppc.logger.get('error', e);
+		}
+	},
+});
+
+})();
+
+(function(){
+
 // 定数
 ppc.constants = gs(base, {
 	rank_list: [0, 1000, 10000, 100000, 300000, 1000000, 10000000, 100000000],
@@ -116,25 +355,152 @@ ppc.constants = gs(base, {
 	}),
 });
 
-// URI (static)
-ppc.uri = gs(base, {
-	works_all: 'http://www.pixiv.net/member_illust.php',
-	illust: function(id){ return 'http://www.pixiv.net/member_illust.php?mode=medium&illust_id=' + id; },
-	illust_bookmarks: function(id){ return 'http://www.pixiv.net/bookmark_detail.php?illust_id=' + id; },
-	home: function(){ return 'http://' + ppc.admin.get('domain'); },
-	css: function(){ return this.get('home') + '/css/ppc'; },
-	img: function(){ return this.get('home') + '/img/ppc'; },
-	guest: function(){ return this.get('home') + '/ppc/ajax/guest'; },
-	record: function(){ return this.get('home') + '/ppc/ajax/record'; },
-	ajax: function(){ return this.get('home') + '/ppc/ajax'; },
+})();
+
+(function(){
+
+// Cookie (each cookie inherits from this)
+ppc.cookie = gs(base, {
+	name: '', // cookie名
+	params: {},
+	expires: 150,
+	input: function(key, val){
+		var params = this.get('params');
+		params[key] = val;
+		return this.set('params', params);
+	},
+	output: function(key, val){
+		if (this.get('params').hasOwnProperty(key)) {
+			return this.get('params')[key];
+		}
+		else {
+			return val;
+		}
+	},
+	remove: function(key){
+		var params = this.get('params');
+		delete params[key];
+		return this.set('params', params);
+	},
+	// cookieを読み取る
+	// 継承した時は必ずreadしてparamsを取得する
+	read: function(){
+		var cs = document.cookie.split(';');
+		for (var i = 0; i < cs.length; i++) {
+			var kv = cs[i].split('=');
+			if (kv[0].replace(/ /g, '') == this.get('name')) {
+				return this.set('params', JSON.parse(decodeURIComponent(kv[1])));
+			}
+		}
+		return this.set('params', {});
+	},
+	// cookieに書き込む
+	write: function(){
+		var c = '';
+		c += this.get('name') + '=' + encodeURIComponent(JSON.stringify(this.get('params')));
+		var exp = new Date();
+		exp.setDate(exp.getDate() + this.get('expires'));
+		c += '; expires=' + exp.toGMTString();
+		document.cookie = c;
+		return c;
+	},
 });
 
-// Rank (static)
-ppc.rank = gs(base, {
-	bookmarked: [7.2, 3.8, 2.4, 1.2, 0],
-	rated: [14, 10, 6, 3, 0],
-	scored: [9.96, 9.8, 9.4, 8.8, 0],
+ppc.cookie.ppc = gs(ppc.cookie, {
+	name: 'ppc',
 });
+ppc.cookie.ppc.get('read');
+
+})();
+
+(function(){
+
+// Illust (each iilust inherits from this)
+ppc.illust = gs(base, {
+	id: null,
+	title: null,
+	html: null,
+	interval: null,
+	age: function(){
+		var minutes = this.get('interval') / (1000 * 60);
+		var hours = minutes / 60;
+		var days = hours / 24;
+		var years = days / 365, // うるう年は無視（暫定）
+			age = '';
+		if (years | 0) {
+			age += (years | 0) + '年';
+		}
+		if (days | 0) {
+			age += (days | 0) % 365 + '日';
+		}
+		if (hours | 0) {
+			age += (hours | 0) % 24 + '時間';
+		}
+			age += (minutes | 0) % 60 + '分';
+		return age;
+	},
+	url: function(){
+		return ppc.uri.get('illust', this.get('id'));
+	},
+	url_bookmarks: function(){
+		return ppc.uri.get('illust_bookmarks', this.get('id'));
+	},
+	jq: function(){
+		var html = this.get('html');
+		return $(html);
+	},
+});
+
+})();
+
+(function(){
+
+// Logger (static)
+ppc.logger = gs(base, {
+	log: [],
+	add: function(message, level, id){
+		var datetime = new Date();
+		d = datetime.toLocaleTimeString() + '.' + datetime.getMilliseconds();
+		var a = this.get('log');
+		var i = id ? id : null;
+		var l = {message: message, level: level, datetime: d, id: i};
+		a.push(l);
+		var text = this.get('_str', l);
+		if (l.level === 3) {
+			alert('エラー: ' + l.message);
+		}
+		if (ppc.user.get('monitor')) {
+			console.log(text);
+		}
+		ppc.renderer.get('render').get('at',
+			ppc.parser.created.get('jq', 'log'),
+			$('<li>', {
+				class: 'log-level' + level,
+				text: text,
+			})
+		);
+		return this.set('log', a);
+	},
+	error: function (e){
+		this.get('add', e.message, 3);
+	},
+	_str: function(o){
+		var s = '',
+			l = '成功';
+		if (o.level === 1) { l = '情報'; }
+		else if (o.level === 2) { l = '警告'; }
+		else if (o.level === 3) { l = 'エラー'; }
+		s = l + ': ' + o.message + ' [' + o.datetime + ']';
+		if (o.id) {
+			s += ' <' + o.id + '>';
+		}
+		return s;
+	},
+});
+
+})();
+
+(function(){
 
 // Manager (static)
 ppc.manager = gs(base, {
@@ -470,367 +836,9 @@ ppc.manager = gs(base, {
 	},
 });
 
-// Parser
-ppc.parser = gs(base, {
-	$doc: $(document),
-	selector: gs(base, {
-		col_l: '.layout-a .ui-layout-west',
-		col_r: '.layout-a ._unit',
-		nickname: '.user-name:first',
-		tags: '.tags:first',
-	}),
-	text: function(key){
-		return this.get('$doc').find(this.get('selector').get(key)).text();
-	},
-	val: function(key){
-		return this.get('$doc').find(this.get('selector').get(key)).val();
-	},
-	attr: function(key, attr){
-		return this.get('$doc').find(this.get('selector').get(key)).attr(attr);
-	},
-	prop: function(key, attr){
-		return this.get('$doc').find(this.get('selector').get(key)).prop(attr);
-	},
-	length: function(key){
-		return this.get('$doc').find(this.get('selector').get(key)).length;
-	},
-	jq: function(key){
-		return this.get('$doc').find(this.get('selector').get(key));
-	},
-	check: function(){
-		for (var k in this.get('selector')) {
-			console.log(this.get('selector').get(key) + ' => ' + $(this.get('selector').get(key)).length);
-		}
-	},
-});
+})();
 
-// parser - イラスト管理ページ(member_illust.php)
-ppc.parser.home = gs(ppc.parser, {
-	selector: gs(base, {
-		contents: '#wrapper',
-		illust: '.display_works>ul>li',
-		illust_anchor: '.display_works a[href^="member_illust.php?mode=medium&illust_id="]',
-		user_id: 'a[href^="member_illust.php?id="]:first',
-		page2: '.page-list a[href*="p=2"]',
-		posted: '.column-header .count-badge:first',
-		works: '.display_works:first',
-	}),
-	ads: [
-		'.ads_area',
-		'.area_new:has(a[href*="ads.pixiv"])',
-		'a[href*="ads.pixiv"]',
-		'.column-header+aside',
-	],
-	illust_jq: function(i){
-		return $('.display_works>ul>li').eq(i);
-	},
-	illust_id: function(i){
-		return this.get('illust_jq', i).find('input[id^="i_"]:first').val();
-	},
-	illust_title: function(i){
-		return this.get('illust_jq', i).find('img[src*="_s."]:first').parent().text();
-	},
-	illust_figures: function(i, c){
-		return this.get('illust_jq', i).find('.display-report>.report-link.' + c + '>.count:first').text().number(0);
-	},
-	$illust_thumbnail: function(i){
-		return this.get('illust_jq', i).find('img[src*="/img/"]:first').clone();
-	},
-	$illust_report: function(i){
-		return this.get('illust_jq', i).find('.display-report:first');
-	},
-});
-
-// parser - 新たに生成したもの
-ppc.parser.created = gs(ppc.parser, {
-	selector: gs(base, {
-		connections: '#maxconn option:selected',
-		guest: '#gstchk',
-		log: '#ppc_log',
-		login_status: '#login_status',
-		max_illusts: '#max_illusts option:selected',
-		result: '#result',
-		tab_group: '#tab_group',
-	}),
-});
-
-// parser - テンプレート
-ppc.parser.template = gs(ppc.parser, {
-	selector: gs(base, {
-		summary: '#summary',
-	}),
-});
-
-// parser - 個別イラストブックマークページ(bookmark_detail.php?illust_id=)
-ppc.parser.illust = gs(ppc.parser, {
-	selector: gs(base, {
-		title: '.title>.self',
-		bookmarked: '.list-option:first',
-		bookmarked_total: '.bookmark-count:first',
-		image_response: '.image-response-count:first',
-		datetime: '.pipe-separated:first>li',
-		user_name: '.user-name:first',
-		tags: '.tags:first',
-		bookmarked_latest: '.bookmark-items>.bookmark-item:first',
-		tags_num_total: '.tags:first>li>.tag-icon',
-		tags_num_self: '.self-tag',
-	}),
-});
-
-// parser - フォロワーページ(bookmark.php?type=reg_user)
-ppc.parser.follower = gs(ppc.parser, {
-	selector: gs(base, {
-		followers: '.info:first .count:first',
-		my_pixiv: '.mypixiv-unit:first>.unit-count'
-	}),
-});
-
-// parser - イラストごとにオブジェクトを継承($docが異なるため)
-ppc.parser.illust.illusts = [];
-
-// Logger (static)
-ppc.logger = gs(base, {
-	log: [],
-	add: function(message, level, id){
-		var datetime = new Date();
-		d = datetime.toLocaleTimeString() + '.' + datetime.getMilliseconds();
-		var a = this.get('log');
-		var i = id ? id : null;
-		var l = {message: message, level: level, datetime: d, id: i};
-		a.push(l);
-		var text = this.get('_str', l);
-		if (l.level === 3) {
-			alert('エラー: ' + l.message);
-		}
-		if (ppc.user.get('monitor')) {
-			console.log(text);
-		}
-		ppc.renderer.get('render').get('at',
-			ppc.parser.created.get('jq', 'log'),
-			$('<li>', {
-				class: 'log-level' + level,
-				text: text,
-			})
-		);
-		return this.set('log', a);
-	},
-	error: function (e){
-		this.get('add', e.message, 3);
-	},
-	_str: function(o){
-		var s = '',
-			l = '成功';
-		if (o.level === 1) { l = '情報'; }
-		else if (o.level === 2) { l = '警告'; }
-		else if (o.level === 3) { l = 'エラー'; }
-		s = l + ': ' + o.message + ' [' + o.datetime + ']';
-		if (o.id) {
-			s += ' <' + o.id + '>';
-		}
-		return s;
-	},
-});
-
-// Ajax
-ppc.ajax = gs(base, {
-	url: null,
-	type: 'GET',
-	data_type: 'html',
-	cache: false,
-	load: function(index){
-		var self = this,
-			url = this.get('url'),
-			type = this.get('type'),
-			data_type = this.get('data_type'),
-			cache = this.get('cache');
-		$.ajax({
-			url: url,
-			type: type,
-			data_type: data_type,
-			cache: cache,
-			beforeSend: function(){
-				ppc.logger.get('add', 'リクエストを送信しました -> ' + url, 0);
-				self.get('_beforeFilter');
-			},
-			success: function(data){
-				ppc.logger.get('add', 'レスポンスを受信しました <- ' + url, 0);
-				self.get('_afterFilter', data, index);
-			},
-			error: function(){
-				ppc.logger.get('add', 'レスポンスを受信できませんでした - ' + url, 3);
-			},
-		});
-	},
-	_beforeFilter: function(){},
-	_afterFilter: function(){},
-});
-
-// ajax - イラスト情報をスクレイピング
-ppc.ajax.illust = gs(ppc.ajax, {
-	active: 0,
-	complete: 0,
-	index: 0,
-	connections: null,
-	illusts: null,
-	init: function(){
-		ppc.logger.get('add', 'Ajaxの初期化を開始しました', 0);
-
-		try {
-			this.set('active', 0);
-			this.set('complete', 0);
-			this.set('index', 0);
-			this.set('connections', ppc.user.get('connections'));
-			this.set('illusts', ppc.user.get('illusts'));
-		}
-		catch (e) {
-			ppc.logger.get('error', e);
-			return false;
-		}
-
-		ppc.logger.get('add', 'Ajaxの初期化を終了しました', 0);
-
-		return true;
-	},
-	run: function(){
-		ppc.logger.get('add', 'Sequential Ajaxを開始しました', 0);
-
-		try {
-			// 最初のAjaxをアクティブにする
-			this.set('url', ppc.illusts[0].get('url_bookmarks'));
-			this.get('_activate');
-		}
-		catch (e){
-			ppc.logger.get('error', e);
-			return false;
-		}
-
-		return true;
-	},
-	_activate: function(){
-		var i = this.get('index');
-		// すべてのAjaxが開始しているまたはアクティブ数が接続数以上になる場合はこれ以上アクティブにしない
-		if (i >= this.get('illusts') || this.get('active') >= this.get('connections')) {
-			// このスコープでの処理は理論上1回しか起こらない
-
-			// インデクスを1つ減らす
-			this.set('index', i - 1);
-			return true;
-		}
-		else {
-			// アクティブ数を1つ増やす
-			var a = this.get('active');
-			this.set('active', a + 1);
-
-			this.get('load', i);
-
-			if (i + 1 !== this.get('illusts')) {
-
-				// インデクスを1つ増やす
-				j = this.set('index', i + 1);
-
-				// Ajaxをアクティブにする
-				this.set('url', ppc.illusts[j].get('url_bookmarks'));
-				this.get('_activate');
-				return false;
-			}
-
-			return true;
-		}
-	},
-	_afterFilter: function(html, i){
-		try {
-			var j = this.get('index');
-
-			// 取得したHTMLを保存
-			ppc.illusts[i].set('html', html);
-
-			// アクティブ数を1つ減らす
-			var a = this.get('active');
-			this.set('active', a - 1);
-
-			// 完了数を1つ増やす
-			var c = this.get('complete');
-			this.set('complete', c + 1);
-
-			// すべてのAjaxが開始していなければ次のAjaxへ移る
-			if (j + 1  < this.get('illusts')) {
-
-				// インデクスを1つ増やす
-				k = this.set('index', j + 1);
-
-				// Ajaxをアクティブにする
-				this.set('url', ppc.illusts[k].get('url_bookmarks'));
-				this.get('_activate');
-				return;
-			}
-
-			// すべてのAjaxが完了していればManagerに伝える
-			if (this.get('complete') === this.get('illusts')) {
-				ppc.logger.get('add', 'Sequential Ajaxを完了しました', 0);
-				ppc.manager.get('finish');
-			}
-
-			return;
-		}
-		catch (e) {
-			ppc.logger.get('error', e);
-			return;
-		}
-
-	},
-});
-
-// ajax - フォロワー数やマイピク数をスクレイピング
-ppc.ajax.follower = gs(ppc.ajax, {
-	url: 'http://www.pixiv.net/bookmark.php?type=reg_user',
-	_afterFilter: function(html){
-		try {
-			ppc.parser.follower.set('$doc', $(html));
-			var followers = ppc.parser.follower.get('text', 'followers'),
-			my_pixiv = ppc.parser.follower.get('text', 'my_pixiv');
-
-			if (!my_pixiv) {
-				my_pixiv = '0';
-			}
-			ppc.user.set('followers', followers.number(0));
-			ppc.user.set('my_pixiv', my_pixiv.number(0));
-		}
-		catch (e) {
-			ppc.logger.get('error', e);
-			return false;
-		}
-
-		// 完了をManagerに伝え、計算に入る
-		ppc.manager.get('calc');
-
-		return true;
-	},
-});
-
-// ajax - 2ページ目
-ppc.ajax.page2 = gs(ppc.ajax, {
-	url: ppc.uri.get('works_all') + '?res=' + ppc.user.get('scope') + '&p=2',
-	// 2ページ目をつなげる
-	_afterFilter: function(data){
-		var $html = $(data).find('.display_works:first').clone();
-
-		ppc.renderer.get('render').get('at', '.display_works', $html);
-		this.get('_drop');
-		ppc.renderer.get('activateStartButton');
-		ppc.logger.get('add', '2ページ目の作品を追加しました');
-	},
-	// 測定対象外の余剰分を落とす
-	_drop: function(){
-		try {
-			for (var i = ppc.parser.home.get('length', 'illust'); i > ppc.admin.get('max_illusts'); i--) {
-				ppc.parser.home.get('illust_jq', i - 1).remove();
-			}
-		}
-		catch (e) {
-			ppc.logger.get('error', e);
-		}
-	},
-});
+(function(){
 
 // Math (static)
 ppc.math = gs(base, {
@@ -863,162 +871,9 @@ ppc.math = gs(base, {
 	},
 });
 
-// Renderer
-ppc.renderer = gs(base, {
-	load: gs(base, {
-		css: function(href){
-			$('<link rel="stylesheet" href="' + href + '.css">').appendTo('head');
-		}
-	}),
-	render: gs(base, {
-		at: function(selector, jq){
-			return jq.appendTo(selector);
-		},
-	}),
-	update: function(selector, text){
-		$(selector).text(text);
-	},
-	remove: function(selector){
-		$(selector).remove();
-	},
-	removeAds: function(){
-		$.each(ppc.parser.home.get('ads'), function(i, selector){
-			$(selector).remove();
-		});
-	},
-	fillUserStatus: function(data){
-		try {
-			if (data.message === 'authorized') { // Twitter認証に成功した場合
-				ppc.logger.get('add', 'Twitterと連携しました', 0);
-				$('#profile_image').attr('src', data.profile_image_url.replace(/normal+\./g, 'mini.')).css('display', 'inline');
-				$('#screen_name').text(data.screen_name);
-				$('#profile_image,#screen_name').wrap('<a href="' + ppc.uri.get('home') + '/account" target="_blank"></a>');
-				ppc.user.set('twitter', true);
-				ppc.user.set('token', data.token);
-				ppc.user.set('last_power', data.last_power);
-				ppc.user.set('twitter_name', data.screen_name);
-				ppc.user.set('name', data.name);
-				ppc.user.set('release', data.release);
-			}
-			$('#login_status .last_power').text(Number(data.last_power).comma());
-			$('#login_status .last_recorded').text(data.recorded);
-			if (data.release > 0) {
-				var t = window.setInterval(function(){
-					if ($('#ppcranking').length == 1) {
-						clearInterval(t);
-						$('#ppcranking').attr('checked', true);
-						if ($('#ppcranking').attr('checked')) { $('#login_status .join').text('参加'); }
-						if (data.release == 1) {$('#release1').attr('checked', true);}
-						else if (data.release == 2) {$('#release2').attr('checked', true);}
-						else if (data.release == 3) {$('#release3').attr('checked', true);}
-					}
-				}, 200);
-			}
-			else {
-				$('#ppcranking').attr('checked', false);
-				if (!$('#ppcranking').attr('checked')) { $('#login_status .join').text('不参加（環境設定から変更できます）'); }
-			}
-		}
-		catch (e) {
-			ppc.logger.get('error', e);
-			return false;
-		}
-	},
-	fillRanking: function (){
-		var target = ppc.parser.created.get('selector').get('login_status');
-		$.getJSON(ppc.uri.get('ajax') + '/ranking' + '?callback=?', {}, function(data){
-			if (data.denominator >= data.numerator) { // 分母が分子以上であれば表示（pixivパワーが0だと例外発生するから）
-				$('.denominator', target).text(data.denominator);
-				$('.numerator', target).text(data.numerator);
-				$('.jump', target).html('<a href="' + ppc.uri.get('home') +'/ppc/ranking/power?page=' + data.page + '" target="_new">ランキングで位置を確認</a>');
-				$('.percentage', target).html('(上から' + Math.ceil((Number(data.numerator) / Number(data.denominator) * 100)) + '%)<a href="' + ppc.uri.get('home') +'/ppc/ranking/power?page=' + data.page + '" target="_new"><i class="fa fa-external-link"></i></a>');
-			}
-		});
-	},
-	activateStartButton: function(){
-		if (!ppc.admin.get('suspended')) {
-			$('#btn-ppc').on('click', function(){
+})();
 
-				// old
-				if (!ppc.old.get('button')) {
-					return false;
-				}
-
-				if (!ppc.manager.get('init')) {
-					return false;
-				}
-
-				if (!ppc.manager.get('run')) {
-					return false;
-				}
-
-				return true;
-
-			}).removeClass('disabled').text('測定する！');
-		}
-	},
-	addNewTabLink: function(selector){
-		$(selector).find('a').attr('target', '_blank');
-	},
-});
-
-// Utility (static)
-ppc.utility = gs(base, {
-	color: function(deviation){
-		if(deviation <= 50){ return 'rgb(247,231,183)'; }
-		else{
-			return 'rgb(247,' + Math.ceil( 231 - (deviation - 50) * 2 ) + ',' + Math.ceil( 183 - (deviation - 50) * 2 ) + ')';
-		}
-	},
-	tab: function(html1, html2, b){
-		var h = '<div>' +
-		'<div class="column-header"><div class="layout-cell"><h1 class="column-title">' + html1 + '</h1></div></div>' +
-		'<div class="column-body' + (b ? ' adjusted' : '') + '">' + html2 + '</div>' +
-		'</div>';
-		return h;
-	},
-	rateWithLetter: function(n, a){
-		var letters = ['S','A','B','C','D','E','F'],
-			rating = '';
-		$.each(a, function(i, v){
-			rating = '<span class="letter letter' + letters[i] + '">' + letters[i] + '</span>';
-			return (n < v);
-		});
-		return rating;
-	},
-	createTableHtml: function(ary, bgColor, bool){
-		var t = '<table>';
-		$.each(ary, function(i, value1){
-			if(!i){
-				if (bool) {
-					t += '<thead>';
-					$.each(ary[i], function(j, value2){
-						t += '<th>' + value2 + '</th>';
-					});
-					t += '</thead>';
-				}
-				t += '<tbody>';
-			}else if(i % 2){
-				t += '<tr>';
-				$.each(ary[i], function(k, value3){
-					t += '<td style="background:' + bgColor + ';">' + value3 + '</td>';
-				});
-				t += '</tr>';
-			}else{
-				t += '<tr>';
-				$.each(ary[i], function(k, value3){
-					t += '<td>' + value3 + '</td>';
-				});
-				t += '</tr>';
-			}
-		});
-		t += '</table></tbody>';
-		return t;
-	},
-	tags_num: function(total, self) {
-		return total + '(' + ( total - self ) + ')';
-	},
-});
+(function($){
 
 // Old (static)
 ppc.old = gs(base, {
@@ -1654,93 +1509,312 @@ ppc.old = gs(base, {
 	},
 });
 
-// Illust (each iilust inherits from this)
-ppc.illust = gs(base, {
-	id: null,
-	title: null,
-	html: null,
-	interval: null,
-	age: function(){
-		var minutes = this.get('interval') / (1000 * 60);
-		var hours = minutes / 60;
-		var days = hours / 24;
-		var years = days / 365, // うるう年は無視（暫定）
-			age = '';
-		if (years | 0) {
-			age += (years | 0) + '年';
-		}
-		if (days | 0) {
-			age += (days | 0) % 365 + '日';
-		}
-		if (hours | 0) {
-			age += (hours | 0) % 24 + '時間';
-		}
-			age += (minutes | 0) % 60 + '分';
-		return age;
+})(jQuery);
+
+(function(){
+
+// Parser
+ppc.parser = gs(base, {
+	$doc: $(document),
+	selector: gs(base, {
+		col_l: '.layout-a .ui-layout-west',
+		col_r: '.layout-a ._unit',
+		nickname: '.user-name:first',
+		tags: '.tags:first',
+	}),
+	text: function(key){
+		return this.get('$doc').find(this.get('selector').get(key)).text();
 	},
-	url: function(){
-		return ppc.uri.get('illust', this.get('id'));
+	val: function(key){
+		return this.get('$doc').find(this.get('selector').get(key)).val();
 	},
-	url_bookmarks: function(){
-		return ppc.uri.get('illust_bookmarks', this.get('id'));
+	attr: function(key, attr){
+		return this.get('$doc').find(this.get('selector').get(key)).attr(attr);
 	},
-	jq: function(){
-		var html = this.get('html');
-		return $(html);
+	prop: function(key, attr){
+		return this.get('$doc').find(this.get('selector').get(key)).prop(attr);
+	},
+	length: function(key){
+		return this.get('$doc').find(this.get('selector').get(key)).length;
+	},
+	jq: function(key){
+		return this.get('$doc').find(this.get('selector').get(key));
+	},
+	check: function(){
+		for (var k in this.get('selector')) {
+			console.log(this.get('selector').get(key) + ' => ' + $(this.get('selector').get(key)).length);
+		}
 	},
 });
 
-// Cookie (each cookie inherits from this)
-ppc.cookie = gs(base, {
-	name: '', // cookie名
-	params: {},
-	expires: 150,
-	input: function(key, val){
-		var params = this.get('params');
-		params[key] = val;
-		return this.set('params', params);
+// parser - イラスト管理ページ(member_illust.php)
+ppc.parser.home = gs(ppc.parser, {
+	selector: gs(base, {
+		contents: '#wrapper',
+		illust: '.display_works>ul>li',
+		illust_anchor: '.display_works a[href^="member_illust.php?mode=medium&illust_id="]',
+		user_id: 'a[href^="member_illust.php?id="]:first',
+		page2: '.page-list a[href*="p=2"]',
+		posted: '.column-header .count-badge:first',
+		works: '.display_works:first',
+	}),
+	ads: [
+		'.ads_area',
+		'.area_new:has(a[href*="ads.pixiv"])',
+		'a[href*="ads.pixiv"]',
+		'.column-header+aside',
+	],
+	illust_jq: function(i){
+		return $('.display_works>ul>li').eq(i);
 	},
-	output: function(key, val){
-		if (this.get('params').hasOwnProperty(key)) {
-			return this.get('params')[key];
+	illust_id: function(i){
+		return this.get('illust_jq', i).find('input[id^="i_"]:first').val();
+	},
+	illust_title: function(i){
+		return this.get('illust_jq', i).find('img[src*="_s."]:first').parent().text();
+	},
+	illust_figures: function(i, c){
+		return this.get('illust_jq', i).find('.display-report>.report-link.' + c + '>.count:first').text().number(0);
+	},
+	$illust_thumbnail: function(i){
+		return this.get('illust_jq', i).find('img[src*="/img/"]:first').clone();
+	},
+	$illust_report: function(i){
+		return this.get('illust_jq', i).find('.display-report:first');
+	},
+});
+
+// parser - 新たに生成したもの
+ppc.parser.created = gs(ppc.parser, {
+	selector: gs(base, {
+		connections: '#maxconn option:selected',
+		guest: '#gstchk',
+		log: '#ppc_log',
+		login_status: '#login_status',
+		max_illusts: '#max_illusts option:selected',
+		result: '#result',
+		tab_group: '#tab_group',
+	}),
+});
+
+// parser - テンプレート
+ppc.parser.template = gs(ppc.parser, {
+	selector: gs(base, {
+		summary: '#summary',
+	}),
+});
+
+// parser - 個別イラストブックマークページ(bookmark_detail.php?illust_id=)
+ppc.parser.illust = gs(ppc.parser, {
+	selector: gs(base, {
+		title: '.title>.self',
+		bookmarked: '.list-option:first',
+		bookmarked_total: '.bookmark-count:first',
+		image_response: '.image-response-count:first',
+		datetime: '.pipe-separated:first>li',
+		user_name: '.user-name:first',
+		tags: '.tags:first',
+		bookmarked_latest: '.bookmark-items>.bookmark-item:first',
+		tags_num_total: '.tags:first>li>.tag-icon',
+		tags_num_self: '.self-tag',
+	}),
+});
+
+// parser - フォロワーページ(bookmark.php?type=reg_user)
+ppc.parser.follower = gs(ppc.parser, {
+	selector: gs(base, {
+		followers: '.info:first .count:first',
+		my_pixiv: '.mypixiv-unit:first>.unit-count'
+	}),
+});
+
+// parser - イラストごとにオブジェクトを継承($docが異なるため)
+ppc.parser.illust.illusts = [];
+
+})();
+
+(function(){
+
+// Rank (static)
+ppc.rank = gs(base, {
+	bookmarked: [7.2, 3.8, 2.4, 1.2, 0],
+	rated: [14, 10, 6, 3, 0],
+	scored: [9.96, 9.8, 9.4, 8.8, 0],
+});
+
+})();
+
+(function($){
+
+// Renderer
+ppc.renderer = gs(base, {
+	load: gs(base, {
+		css: function(href){
+			$('<link rel="stylesheet" href="' + href + '.css">').appendTo('head');
 		}
-		else {
-			return val;
-		}
+	}),
+	render: gs(base, {
+		at: function(selector, jq){
+			return jq.appendTo(selector);
+		},
+	}),
+	update: function(selector, text){
+		$(selector).text(text);
 	},
-	remove: function(key){
-		var params = this.get('params');
-		delete params[key];
-		return this.set('params', params);
+	remove: function(selector){
+		$(selector).remove();
 	},
-	// cookieを読み取る
-	// 継承した時は必ずreadしてparamsを取得する
-	read: function(){
-		var cs = document.cookie.split(';');
-		for (var i = 0; i < cs.length; i++) {
-			var kv = cs[i].split('=');
-			if (kv[0].replace(/ /g, '') == this.get('name')) {
-				return this.set('params', JSON.parse(decodeURIComponent(kv[1])));
+	removeAds: function(){
+		$.each(ppc.parser.home.get('ads'), function(i, selector){
+			$(selector).remove();
+		});
+	},
+	fillUserStatus: function(data){
+		try {
+			if (data.message === 'authorized') { // Twitter認証に成功した場合
+				ppc.logger.get('add', 'Twitterと連携しました', 0);
+				$('#profile_image').attr('src', data.profile_image_url.replace(/normal+\./g, 'mini.')).css('display', 'inline');
+				$('#screen_name').text(data.screen_name);
+				$('#profile_image,#screen_name').wrap('<a href="' + ppc.uri.get('home') + '/account" target="_blank"></a>');
+				ppc.user.set('twitter', true);
+				ppc.user.set('token', data.token);
+				ppc.user.set('last_power', data.last_power);
+				ppc.user.set('twitter_name', data.screen_name);
+				ppc.user.set('name', data.name);
+				ppc.user.set('release', data.release);
+			}
+			$('#login_status .last_power').text(Number(data.last_power).comma());
+			$('#login_status .last_recorded').text(data.recorded);
+			if (data.release > 0) {
+				var t = window.setInterval(function(){
+					if ($('#ppcranking').length == 1) {
+						clearInterval(t);
+						$('#ppcranking').attr('checked', true);
+						if ($('#ppcranking').attr('checked')) { $('#login_status .join').text('参加'); }
+						if (data.release == 1) {$('#release1').attr('checked', true);}
+						else if (data.release == 2) {$('#release2').attr('checked', true);}
+						else if (data.release == 3) {$('#release3').attr('checked', true);}
+					}
+				}, 200);
+			}
+			else {
+				$('#ppcranking').attr('checked', false);
+				if (!$('#ppcranking').attr('checked')) { $('#login_status .join').text('不参加（環境設定から変更できます）'); }
 			}
 		}
-		return this.set('params', {});
+		catch (e) {
+			ppc.logger.get('error', e);
+			return false;
+		}
 	},
-	// cookieに書き込む
-	write: function(){
-		var c = '';
-		c += this.get('name') + '=' + encodeURIComponent(JSON.stringify(this.get('params')));
-		var exp = new Date();
-		exp.setDate(exp.getDate() + this.get('expires'));
-		c += '; expires=' + exp.toGMTString();
-		document.cookie = c;
-		return c;
+	fillRanking: function (){
+		var target = ppc.parser.created.get('selector').get('login_status');
+		$.getJSON(ppc.uri.get('ajax') + '/ranking' + '?callback=?', {}, function(data){
+			if (data.denominator >= data.numerator) { // 分母が分子以上であれば表示（pixivパワーが0だと例外発生するから）
+				$('.denominator', target).text(data.denominator);
+				$('.numerator', target).text(data.numerator);
+				$('.jump', target).html('<a href="' + ppc.uri.get('home') +'/ppc/ranking/power?page=' + data.page + '" target="_new">ランキングで位置を確認</a>');
+				$('.percentage', target).html('(上から' + Math.ceil((Number(data.numerator) / Number(data.denominator) * 100)) + '%)<a href="' + ppc.uri.get('home') +'/ppc/ranking/power?page=' + data.page + '" target="_new"><i class="fa fa-external-link"></i></a>');
+			}
+		});
+	},
+	activateStartButton: function(){
+		if (!ppc.admin.get('suspended')) {
+			$('#btn-ppc').on('click', function(){
+
+				// old
+				if (!ppc.old.get('button')) {
+					return false;
+				}
+
+				if (!ppc.manager.get('init')) {
+					return false;
+				}
+
+				if (!ppc.manager.get('run')) {
+					return false;
+				}
+
+				return true;
+
+			}).removeClass('disabled').text('測定する！');
+		}
+	},
+	addNewTabLink: function(selector){
+		$(selector).find('a').attr('target', '_blank');
 	},
 });
 
-ppc.cookie.ppc = gs(ppc.cookie, {
-	name: 'ppc',
+})(jQuery);
+
+(function($){
+
+// Utility (static)
+ppc.utility = gs(base, {
+	color: function(deviation){
+		if(deviation <= 50){ return 'rgb(247,231,183)'; }
+		else{
+			return 'rgb(247,' + Math.ceil( 231 - (deviation - 50) * 2 ) + ',' + Math.ceil( 183 - (deviation - 50) * 2 ) + ')';
+		}
+	},
+	tab: function(html1, html2, b){
+		var h = '<div>' +
+		'<div class="column-header"><div class="layout-cell"><h1 class="column-title">' + html1 + '</h1></div></div>' +
+		'<div class="column-body' + (b ? ' adjusted' : '') + '">' + html2 + '</div>' +
+		'</div>';
+		return h;
+	},
+	rateWithLetter: function(n, a){
+		var letters = ['S','A','B','C','D','E','F'],
+			rating = '';
+		$.each(a, function(i, v){
+			rating = '<span class="letter letter' + letters[i] + '">' + letters[i] + '</span>';
+			return (n < v);
+		});
+		return rating;
+	},
+	createTableHtml: function(ary, bgColor, bool){
+		var t = '<table>';
+		$.each(ary, function(i, value1){
+			if(!i){
+				if (bool) {
+					t += '<thead>';
+					$.each(ary[i], function(j, value2){
+						t += '<th>' + value2 + '</th>';
+					});
+					t += '</thead>';
+				}
+				t += '<tbody>';
+			}else if(i % 2){
+				t += '<tr>';
+				$.each(ary[i], function(k, value3){
+					t += '<td style="background:' + bgColor + ';">' + value3 + '</td>';
+				});
+				t += '</tr>';
+			}else{
+				t += '<tr>';
+				$.each(ary[i], function(k, value3){
+					t += '<td>' + value3 + '</td>';
+				});
+				t += '</tr>';
+			}
+		});
+		t += '</table></tbody>';
+		return t;
+	},
+	tags_num: function(total, self) {
+		return total + '(' + ( total - self ) + ')';
+	},
 });
-ppc.cookie.ppc.get('read');
+
+})(jQuery);
+
+(function($){
+
+if (location.href !== 'http://www.pixiv.net/member_illust.php' && location.href !== 'http://www.pixiv.net/member_illust.php?res=full' && location.href !== 'http://www.pixiv.net/member_illust.php?res=all') {
+	alert('http://www.pixiv.net/member_illust.php\nまたは\nhttp://www.pixiv.net/member_illust.php?res=full\nで実行してください。');
+	return;
+}
 
 // Illust継承オブジェクトを格納する配列
 // ppc.illustと混同しないように注意
@@ -1790,20 +1864,6 @@ ppc.illusts = [];
 ([
 	'http://' + ppc.admin.get('domain') + '/js/ppc/jquery-ui-1.8.2.custom.min.js'
 ]);
-
-$.fn.extend({
-	// HTMLの呼び出し
-	appendHtml: function(page, func){
-		var target = this;
-		$.getJSON(ppc.uri.get('ajax') + '/page/' + page + '?callback=?', {}, function(data){
-			$(data.html).appendTo(target);
-			func();
-		});
-	},
-	appendTab: function(text, anchor){
-		return this.append($('<li>').prepend(($('<a>').attr('href', anchor)).prepend($('<span>').text(text))));
-	}
-});
 
 // 主な処理はここから開始
 var $leftColumn = ppc.parser.get('jq', 'col_l');
@@ -2031,7 +2091,5 @@ ppc.parser.created.get('jq', 'tab_group').fadeOut('slow',function(){
 		},100
 	);
 });
-
-var $ppc_result = $('<div>').attr('id', 'ppc_result');
 
 })(jQuery);
