@@ -356,18 +356,7 @@ ppc.old = gs(base, {
 					$('.display-report').eq(i).css('border-color', ppc.utility.get('color', dv_power));
 					$('.display_works>ul>li').eq(i).find('.bookmark-count:first').html('<i class="_icon sprites-bookmark-badge"></i>' + v.get('bookmarked_total') + ' (' + v.get('bookmarked_public') + ' + ' + v.get('bookmarked_private') + ')');
 
-					/*
-					var timestamp_a = v.get('timestamp').split(' ');
-					data.date = timestamp_a[0];
-					data.time = timestamp_a[1];
-					data.dv_power = dv_power;
-					data.dv_hot = dv_hot;
-					dataset.push(data);
-					*/
-
 				});
-
-				// console.log(dataset.toSource());
 
 			}
 			catch (e) {
