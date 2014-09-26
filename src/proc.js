@@ -56,7 +56,8 @@ ppc.illusts = [];
 
 // Load external libraries
 ([
-	'http://' + ppc.admin.get('domain') + '/js/ppc/jquery-ui-1.8.2.custom.min.js'
+	ppc.uri.get('js', 'jquery-ui-1.8.2.custom.min'),
+	ppc.uri.get('js', 'd3.v3.min')
 ]);
 
 // 主な処理はここから開始

@@ -6,7 +6,7 @@ ppc.uri = gs(base, {
 	illust: function(id){ return 'http://www.pixiv.net/member_illust.php?mode=medium&illust_id=' + id; },
 	illust_bookmarks: function(id){ return 'http://www.pixiv.net/bookmark_detail.php?illust_id=' + id; },
 	home: function(){ return 'http://' + ppc.admin.get('domain'); },
-	js: function(){ return 'http://' + ppc.admin.get('domain') + '/js'; },
+	js: function(name){ return 'http://' + ppc.admin.get('domain') + '/js/' + name + '.js'; },
 	css: function(){ return this.get('home') + '/css/ppc'; },
 	img: function(){ return this.get('home') + '/img/ppc'; },
 	guest: function(){ return this.get('home') + '/ppc/ajax/guest'; },
