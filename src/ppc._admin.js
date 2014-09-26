@@ -4,7 +4,7 @@
 ppc.admin = gs(base, {
 	version: gs(base, {
 		script: '*',
-		css: '140920',
+		css: '140926',
 	}),
 	canonical_domain: 'eshies.net',
 	domain: 'dev.eshies.net',

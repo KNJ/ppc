@@ -304,6 +304,7 @@ ppc.old = gs(base, {
 
 				$('<br>').appendTo('#ppc_result');
 
+				// サマリーの表示
 				ppc.renderer.get('render').get('at', '#ppc_right', ppc.parser.template.get('jq', 'summary'));
 				$('#summary')
 					.find('.illusts').text(ppc.user.get('illusts')).end()
@@ -337,8 +338,6 @@ ppc.old = gs(base, {
 				// パワー標準偏差、HOT標準偏差
 				var sd_power = ppc.math.get('standardDeviation', illusts, 'power', total_power),
 				sd_hot = ppc.math.get('standardDeviation', illusts, 'hot', ppc.user.get('hot_sum'));
-
-				var dataset = [];
 
 				$.each(illusts, function(i, v){
 					var data = {};
@@ -400,6 +399,29 @@ ppc.old = gs(base, {
 					ppc.cookie.ppc.get('input', 'pidchk', false);
 				}
 				ppc.cookie.ppc.get('write');
+			});
+
+			// 作品マップの表示
+			ppc.renderer.get('render').get('at', '#ppc_result', $('<div>', {
+				class: 'svg-whole',
+				css: {
+					clear: 'both',
+					display: 'none',
+					visibility: 'hidden',
+					//height: '360px',
+				}
+			}));
+			ppc.d3.whole.get('init');
+
+			$(window).on('scroll', function(){
+				var self = $(window);
+				var scroll_bottom = self.scrollTop() + self.height();
+				if (scroll_bottom > 1200) {
+					self.off('scroll');
+					$('.svg-whole').show('blind', {easing: 'easeInOutExpo'}, 1500, function(){
+						$(this).css({visibility:'visible'}).fadeIn();
+					});
+				}
 			});
 
 			// リンクを新しいタブで開くようにする
