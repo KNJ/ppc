@@ -401,25 +401,24 @@ ppc.old = gs(base, {
 				ppc.cookie.ppc.get('write');
 			});
 
-			// 作品マップの表示
+			// 作品ステータスマップの生成と表示
 			ppc.renderer.get('render').get('at', '#ppc_result', $('<div>', {
 				class: 'svg-whole',
-				css: {
-					clear: 'both',
-					display: 'none',
-					visibility: 'hidden',
-					//height: '360px',
-				}
 			}));
-			ppc.d3.whole.get('init');
+			ppc.renderer.get('render').get('at', '.svg-whole', $('<h2>', {
+				text: '作品ステータスマップ',
+			}));
+			ppc.d3.whole.get('init', ppc.illusts);
 
 			$(window).on('scroll', function(){
 				var self = $(window);
 				var scroll_bottom = self.scrollTop() + self.height();
-				if (scroll_bottom > 1200) {
+				if (scroll_bottom > 1000) {
 					self.off('scroll');
 					$('.svg-whole').show('blind', {easing: 'easeInOutExpo'}, 1500, function(){
-						$(this).css({visibility:'visible'}).fadeIn();
+						$(this).css({visibility:'visible'}).fadeIn(null, function(){
+							ppc.d3.whole.get('render');
+						});
 					});
 				}
 			});

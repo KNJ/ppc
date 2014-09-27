@@ -177,10 +177,15 @@ ppc.manager = gs(base, {
 				var timestamp = parser.get('text', 'datetime'),
 				timestamp_a = timestamp.number(null),
 				datetime = new Date(timestamp_a[0], timestamp_a[1] - 1, timestamp_a[2], timestamp_a[3], timestamp_a[4], timestamp_a[5], 0),
+				timestamp_b = timestamp.split(' '),
+				date = timestamp_b[0],
+				time = timestamp_b[1],
 				milliseconds = datetime.getTime(),
 				interval = ppc.user.get('now') - milliseconds;
 
 				illust.set('timestamp', timestamp);
+				illust.set('date', date);
+				illust.set('time', time);
 				illust.set('milliseconds', milliseconds);
 				illust.set('interval', interval); // ミリ秒単位の経過時間
 				illust.set('interval_days', interval / (1000 * 60 * 60 * 24)); // 日単位の経過時間
