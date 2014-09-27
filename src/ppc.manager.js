@@ -73,7 +73,9 @@ ppc.manager = gs(base, {
 		ppc.logger.get('add', '測定を開始しました', 0, 'start analyzing');
 
 		// タブを切り替える
-		ppc.parser.created.get('jq', 'tab_group').tabs({disabled: [2]}).tabs('select', 1);
+		ppc.parser.created.get('jq', 'tab_group').tabs({
+			disabled: [2],
+		}).tabs('option', 'active', 1);
 
 		if (!ppc.ajax.illust.get('init')) {
 			return false;

@@ -37,8 +37,9 @@ ppc.old = gs(base, {
 			$('#btn-ppc').text('測定が終わりました').off();
 
 			// タブ表示
-			ppc.parser.created.get('jq', 'tab_group').tabs('option', 'disabled', []);
-			ppc.parser.created.get('jq', 'tab_group').tabs('select', 1);
+			ppc.parser.created.get('jq', 'tab_group').tabs({
+				disabled: false,
+			});
 
 			ppc.renderer.get('render').get('at', '#totalResult .column-body', $ppc_result);
 			$('#guest').parent().wrap('<div id="ppc_left" />');

@@ -56,7 +56,7 @@ ppc.illusts = [];
 
 // Load external libraries
 ([
-	ppc.uri.get('js', 'jquery-ui-1.8.2.custom.min'),
+	ppc.uri.get('js', 'jquery-ui.min'),
 	ppc.uri.get('js', 'd3.v3.min')
 ]);
 
@@ -206,76 +206,92 @@ ppc.parser.created.get('jq', 'tab_group').fadeOut('slow',function(){
 
 	// Wait until jQuery UI is completely loaded
 	var timer0 = window.setInterval(
+
 		function(){
+
 			try {
+
 				// タブ表示
-				ppc.parser.created.get('jq', 'tab_group').tabs({selected: 5, disabled: [1,2], fx:{opacity: 'toggle', duration: 'fast'}}).fadeIn('slow');
+				ppc.parser.created.get('jq', 'tab_group').tabs({
+					selected: 5,
+					disabled: [1,2],
+					show: {
+						effect: 'fadeIn',
+						duration: 200,
+					},
+					hide: {
+						effect: 'fadeOut',
+						duration: 200,
+					}
+				}).fadeIn('slow');
+
 				clearInterval(timer0);
 				ppc.logger.get('add', 'jQuery UIを読み込みました', 0);
+
+				try {
+					// テンプレートをダウンロード
+					$.getJSON(ppc.uri.get('ajax') + '/page/template' + '?callback=?', {}, function(data){
+						var $html = $(data.html);
+						ppc.parser.template.set('$doc', $html);
+						ppc.logger.get('add', 'テンプレートをダウンロードしました', 0);
+
+						// 測定ボタンを生成
+						$html.find('#btn-ppc').appendTo('#buttons');
+
+						// 2ページ目があるかどうか確認
+						// 確認後、開始ボタンを利用可にする
+						if (ppc.parser.home.get('length', 'page2') > 0) {
+							ppc.logger.get('add', '21以上の作品が検出されました', 1);
+							ppc.ajax.page2.get('load');
+						}
+						else {
+							ppc.renderer.get('activateStartButton');
+						}
+
+						// ログインステータスの表示
+						$('#buttons').appendHtml('login_status', function(){
+							if (window.addEventListener) {
+								window.addEventListener('message', function(e){
+									var data = JSON.parse(e.data);
+									if (e.origin === ppc.uri.get('home') || e.origin === ppc.uri.get('home') + '/') {
+										ppc.renderer.get('fillUserStatus', data);
+										ppc.renderer.get('fillRanking');
+									}
+								});
+							}
+							if (ppc.user.get('release') > 0) {
+								ppc.renderer.get('update', '#login_status .join', '参加');
+							}
+							else {
+								ppc.renderer.get('update', '#login_status .join', '不参加（「環境設定」から変更できます）');
+							}
+						});
+
+						// Twitterログインボタンの生成
+						ppc.renderer.get('render').get('at',
+							'#buttons',
+							$('<iframe>', {
+								id: 'login_with_twitter',
+								class: 'button',
+								name: 'login_with_twitter',
+								width: '120',
+								height: '34',
+								src: ppc.uri.get('home') + '/twitter/button',
+							})
+						);
+
+						// Tiwtterアイコン、screen nameの表示
+						ppc.renderer.get('render').get('at', '#buttons', $('<img>', {id:'profile_image'}));
+						ppc.renderer.get('render').get('at', '#buttons', $('<span>', {id:'screen_name', text:'Twitterとの連携でパワーの保存やランキングへの参加ができます'}));
+					});
+				}
+				catch (e) {
+					ppc.logger.get('error', e);
+				}
+
 			}
 			catch(e){
 				// ppc.logger.get('error', e);
-			}
-
-			try {
-				// テンプレートをダウンロード
-				$.getJSON(ppc.uri.get('ajax') + '/page/template' + '?callback=?', {}, function(data){
-					var $html = $(data.html);
-					ppc.parser.template.set('$doc', $html);
-					ppc.logger.get('add', 'テンプレートをダウンロードしました', 0);
-
-					// 測定ボタンを生成
-					$html.find('#btn-ppc').appendTo('#buttons');
-
-					// 2ページ目があるかどうか確認
-					// 確認後、開始ボタンを利用可にする
-					if (ppc.parser.home.get('length', 'page2') > 0) {
-						ppc.logger.get('add', '21以上の作品が検出されました', 1);
-						ppc.ajax.page2.get('load');
-					}
-					else {
-						ppc.renderer.get('activateStartButton');
-					}
-
-					// ログインステータスの表示
-					$('#buttons').appendHtml('login_status', function(){
-						if (window.addEventListener) {
-							window.addEventListener('message', function(e){
-								var data = JSON.parse(e.data);
-								if (e.origin === ppc.uri.get('home') || e.origin === ppc.uri.get('home') + '/') {
-									ppc.renderer.get('fillUserStatus', data);
-									ppc.renderer.get('fillRanking');
-								}
-							});
-						}
-						if (ppc.user.get('release') > 0) {
-							ppc.renderer.get('update', '#login_status .join', '参加');
-						}
-						else {
-							ppc.renderer.get('update', '#login_status .join', '不参加（「環境設定」から変更できます）');
-						}
-					});
-
-					// Twitterログインボタンの生成
-					ppc.renderer.get('render').get('at',
-						'#buttons',
-						$('<iframe>', {
-							id: 'login_with_twitter',
-							class: 'button',
-							name: 'login_with_twitter',
-							width: '120',
-							height: '34',
-							src: ppc.uri.get('home') + '/twitter/button',
-						})
-					);
-
-					// Tiwtterアイコン、screen nameの表示
-					ppc.renderer.get('render').get('at', '#buttons', $('<img>', {id:'profile_image'}));
-					ppc.renderer.get('render').get('at', '#buttons', $('<span>', {id:'screen_name', text:'Twitterとの連携でパワーの保存やランキングへの参加ができます'}));
-				});
-			}
-			catch (e) {
-				ppc.logger.get('error', e);
 			}
 
 		},100
