@@ -76,7 +76,7 @@ var $ppc_result = $('<div>').attr('id', 'ppc_result');
 // 管理者設定 (static)
 ppc.admin = gs(base, {
 	version: gs(base, {
-		script: '140927',
+		script: '140928',
 		css: '140926',
 	}),
 	canonical_domain: 'eshies.net',
@@ -1870,7 +1870,7 @@ ppc.parser.illust = gs(ppc.parser, {
 		bookmarked: '.list-option:first',
 		bookmarked_total: '.bookmark-count:first',
 		image_response: '.image-response-count:first',
-		datetime: '.pipe-separated:first>li',
+		datetime: '.pipe-separated:first>li:first',
 		user_name: '.user-name:first',
 		tags: '.tags:first',
 		bookmarked_latest: '.bookmark-items>.bookmark-item:first',
