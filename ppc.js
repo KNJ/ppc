@@ -76,11 +76,11 @@ var $ppc_result = $('<div>').attr('id', 'ppc_result');
 // 管理者設定 (static)
 ppc.admin = gs(base, {
 	version: gs(base, {
-		script: '*',
-		css: '140920',
+		script: '140927',
+		css: '140926',
 	}),
 	canonical_domain: 'eshies.net',
-	domain: 'dev.eshies.net',
+	domain: 'eshies.net',
 	max_illusts: 28, // 測定対象上限数
 	min_illusts: 20, // 測定対象下限数
 	suspended: false,
@@ -96,6 +96,7 @@ ppc.uri = gs(base, {
 	illust: function(id){ return 'http://www.pixiv.net/member_illust.php?mode=medium&illust_id=' + id; },
 	illust_bookmarks: function(id){ return 'http://www.pixiv.net/bookmark_detail.php?illust_id=' + id; },
 	home: function(){ return 'http://' + ppc.admin.get('domain'); },
+	js: function(name){ return 'http://' + ppc.admin.get('domain') + '/js/' + name + '.js'; },
 	css: function(){ return this.get('home') + '/css/ppc'; },
 	img: function(){ return this.get('home') + '/img/ppc'; },
 	guest: function(){ return this.get('home') + '/ppc/ajax/guest'; },
@@ -413,6 +414,219 @@ ppc.cookie.ppc.get('read');
 
 })();
 
+(function($){
+
+	// D3
+	ppc.d3 = gs(base, {
+		field: null,
+		dataset: [],
+		selection: null,
+		width: 744,
+		height: 360,
+		padding: gs(base, {
+			top: 60,
+			right: 50,
+			bottom: 60,
+			left : 50,
+		}),
+		scaleX: null,
+		scaleY: null,
+		axis_x: null,
+		axis_y: null,
+		init: function(dataset){
+			var selection = d3.select(this.get('field')).append('svg').attr({
+				width: this.get('width'),
+				height: this.get('height'),
+			});
+			this.set('selection', selection);
+			this.set('dataset', dataset);
+		},
+	});
+
+	ppc.d3.whole = gs(ppc.d3, {
+		field: '.svg-whole',
+		render: function(){
+			try {
+
+				var whole = this,
+					dataset = whole.get('dataset'),
+					selection = whole.get('selection'),
+					min = d3.min(dataset, function(d){
+						return d.get('date');
+					});
+
+				dataset.sort(function(a, b){
+					return b.get('dv_power') - a.get('dv_power');
+				});
+
+				var scaleX = d3.time.scale()
+				.domain([
+					new Date(min),
+					new Date()
+				])
+				.range([whole.get('padding').get('left'), whole.get('width') - whole.get('padding').get('right')])
+				.nice();
+
+				var scaleY = d3.time.scale()
+					.domain([
+						new Date(1970, 1, 1, 23, 59, 59),
+						new Date(1970, 1, 1, 0, 0, 0)
+					])
+					.range([whole.get('padding').get('top'), whole.get('height') - whole.get('padding').get('bottom')])
+					.nice();
+
+				var axis_x = d3.svg.axis()
+					.scale(scaleX)
+					.orient('bottom')
+					.tickFormat(d3.time.format('%Y/%m'));
+
+				var axis_y = d3.svg.axis()
+					.scale(scaleY)
+					.orient('left')
+					.tickFormat(d3.time.format('%H:%M'));
+
+				// x軸の描画
+				selection.append('g')
+					.attr({
+						class: 'axis axis-x',
+						transform: 'translate(0,' + (whole.get('height') - whole.get('padding').get('bottom')) + ')',
+					})
+					.call(axis_x)
+					.selectAll('text')
+					.attr({
+						x: 35,
+						y: -5,
+						transform: 'rotate(90)',
+					});
+
+				d3.select('.axis-x')
+					.append('text')
+					.attr({
+						x: 0,
+						y: -720,
+						transform: 'rotate(90)',
+					})
+					.text('投稿年月日');
+
+				// y軸の描画
+				selection.append('g')
+					.attr({
+						class: 'axis axis-y',
+						transform: 'translate(' + whole.get('padding').get('left') + ',0)',
+					})
+					.call(axis_y)
+					.append('text')
+					.attr({
+						x: -44,
+						y: 35,
+					})
+					.text('投稿時刻');
+
+				// ツールチップ
+				var $tooltip = ppc.parser.template.get('jq', 'tooltip_whole').clone().appendTo(whole.get('field'));
+				var tooltip = d3.select('.tooltip-whole');
+
+				// 点の描画
+				selection.selectAll('circle')
+					.data(dataset)
+					.enter()
+					.append('circle')
+					.on('mouseover', function(d){
+
+						d3.select(this)
+						.transition()
+						.duration(300)
+						.attr({
+							'fill-opacity': '1',
+						});
+
+						$tooltip.find('.title').text(d.get('title')).end()
+						.find('.thumbnail').empty().append(d.get('$thumbnail').clone()).end()
+						.find('.hot').text((d.get('hot') | 0).comma()).end()
+						.find('.power').text(d.get('power').comma()).end()
+						.find('.date').text(d.get('date')).end()
+						.find('.time').text(d.get('time'));
+
+						var self = d3.select(this),
+						x = d3.select(this).attr('cx'),
+						y = d3.select(this).attr('cy'),
+						w = tooltip.style('width').number(0),
+						h = tooltip.style('height').number(0),
+						left = x - w / 2 - 3;
+
+						// ツールチップが描画領域幅からはみ出さないようにする
+						if (left < whole.get('padding').get('left')) {
+							left = whole.get('padding').get('left');
+						}
+						else if (left + w > whole.get('width') - whole.get('padding').get('right')) {
+							left = whole.get('width') - whole.get('padding').get('right') - w;
+						}
+
+						return tooltip.style('visibility', 'visible')
+							.style({
+								top: (y - 20 - h) + 'px',
+								left: left + 'px',
+							});
+
+					})
+					.on('mouseout', function(){
+
+						d3.select(this)
+						.transition()
+						.duration(600)
+						.attr({
+							'stroke-width': '0',
+							'fill-opacity': '.5',
+						});
+						return tooltip.style('visibility', 'hidden');
+
+					})
+					.transition()
+					.delay(function(d, i){
+						return i * 50;
+					})
+					.duration(1000)
+					.each('start', function(){
+						d3.select(this).attr({
+							r: 0,
+							fill: 'rgb(255,255,255)',
+							'fill-opacity': 0,
+						});
+					})
+					.attr({
+						cx: function(d){ return scaleX(new Date(d.get('date'))); },
+						cy: function(d){
+							var times = d.get('time').split(':');
+							return scaleY(new Date(1970, 1, 1, times[0], times[1], times[2]));
+						},
+						r: function(d){ return Math.sqrt(d.get('dv_power')) * 3; },
+						fill: function(d){
+
+							var v = d.get('dv_hot') > 100 ? 100 : d.get('dv_hot');
+							v = v < 37 ? 37 : v;
+							v = v - 37;
+
+							var y = Math.LOG2E * Math.log(v + 1);
+							var h = 360 - y / 6 * 360;
+							var s = Math.pow(y / 6 * 10, 2);
+							var l = 100 - y / 6 * 50;
+							return 'hsl(' + h + ',' + s + '%,' + l  + '%)';
+
+						},
+						'fill-opacity': 0.5,
+
+					});
+
+			}
+			catch(e){
+				ppc.logger.get('error', e);
+			}
+
+		},
+	});
+
+})(jQuery);
+
 (function(){
 
 // Illust (each iilust inherits from this)
@@ -453,17 +667,17 @@ ppc.illust = gs(base, {
 
 })();
 
-(function(){
+(function($){
 
 // Logger (static)
 ppc.logger = gs(base, {
 	log: [],
 	add: function(message, level, id){
+		id = id || null;
 		var datetime = new Date();
-		d = datetime.toLocaleTimeString() + '.' + datetime.getMilliseconds();
+		var d = datetime.toLocaleTimeString() + '.' + datetime.getMilliseconds();
 		var a = this.get('log');
-		var i = id ? id : null;
-		var l = {message: message, level: level, datetime: d, id: i};
+		var l = {message: message, level: level, datetime: d, id: id};
 		a.push(l);
 		var text = this.get('_str', l);
 		if (l.level === 3) {
@@ -498,7 +712,7 @@ ppc.logger = gs(base, {
 	},
 });
 
-})();
+})(jQuery);
 
 (function(){
 
@@ -575,7 +789,9 @@ ppc.manager = gs(base, {
 		ppc.logger.get('add', '測定を開始しました', 0, 'start analyzing');
 
 		// タブを切り替える
-		ppc.parser.created.get('jq', 'tab_group').tabs({disabled: [2]}).tabs('select', 1);
+		ppc.parser.created.get('jq', 'tab_group').tabs({
+			disabled: [2],
+		}).tabs('option', 'active', 1);
 
 		if (!ppc.ajax.illust.get('init')) {
 			return false;
@@ -679,10 +895,15 @@ ppc.manager = gs(base, {
 				var timestamp = parser.get('text', 'datetime'),
 				timestamp_a = timestamp.number(null),
 				datetime = new Date(timestamp_a[0], timestamp_a[1] - 1, timestamp_a[2], timestamp_a[3], timestamp_a[4], timestamp_a[5], 0),
+				timestamp_b = timestamp.split(' '),
+				date = timestamp_b[0],
+				time = timestamp_b[1],
 				milliseconds = datetime.getTime(),
 				interval = ppc.user.get('now') - milliseconds;
 
 				illust.set('timestamp', timestamp);
+				illust.set('date', date);
+				illust.set('time', time);
 				illust.set('milliseconds', milliseconds);
 				illust.set('interval', interval); // ミリ秒単位の経過時間
 				illust.set('interval_days', interval / (1000 * 60 * 60 * 24)); // 日単位の経過時間
@@ -859,15 +1080,21 @@ ppc.math = gs(base, {
 		});
 		return sum;
 	},
-	standardDeviation: function(illusts, total_power, count){
-		var sigma = 0;
-		$.each(illusts, function(i, v){
-			sigma += Math.pow((v.get('power') - total_power / count), 2);
+	standardDeviation: function(dataset, prop, sum){
+
+		var l = dataset.length, sigma = 0;
+
+		$.each(dataset, function(i, v){
+			sigma += Math.pow((v.get(prop) - sum / l), 2);
 		});
-		return Math.sqrt(sigma / count);
+
+		return Math.sqrt(sigma / l);
+
 	},
-	deviation: function(sd, power, power_average){
-		return (10 * ( power - power_average ) / sd + 50).toFixed(1);
+	deviation: function(sd, val, average){
+
+		return (10 * ( val - average ) / sd + 50).toFixed(1);
+
 	},
 });
 
@@ -912,8 +1139,9 @@ ppc.old = gs(base, {
 			$('#btn-ppc').text('測定が終わりました').off();
 
 			// タブ表示
-			ppc.parser.created.get('jq', 'tab_group').tabs('option', 'disabled', []);
-			ppc.parser.created.get('jq', 'tab_group').tabs('select', 1);
+			ppc.parser.created.get('jq', 'tab_group').tabs({
+				disabled: false,
+			});
 
 			ppc.renderer.get('render').get('at', '#totalResult .column-body', $ppc_result);
 			$('#guest').parent().wrap('<div id="ppc_left" />');
@@ -1179,6 +1407,7 @@ ppc.old = gs(base, {
 
 				$('<br>').appendTo('#ppc_result');
 
+				// サマリーの表示
 				ppc.renderer.get('render').get('at', '#ppc_right', ppc.parser.template.get('jq', 'summary'));
 				$('#summary')
 					.find('.illusts').text(ppc.user.get('illusts')).end()
@@ -1209,19 +1438,26 @@ ppc.old = gs(base, {
 						.end()
 					.find('tr').not(':first').filter(':even').css('backgroundColor', '#f3f3f3');
 
-				// 標準偏差
-				var sd = ppc.math.get('standardDeviation', illusts, total_power, count);
+				// パワー標準偏差、HOT標準偏差
+				var sd_power = ppc.math.get('standardDeviation', illusts, 'power', total_power),
+				sd_hot = ppc.math.get('standardDeviation', illusts, 'hot', ppc.user.get('hot_sum'));
 
 				$.each(illusts, function(i, v){
-					var deviation = ppc.math.get('deviation', sd, v.get('power'), total_power / count),
-						$illust_report = ppc.parser.home.get('$illust_report', i);
-					v.set('deviation', deviation);
+					var data = {};
+
+					var dv_power = ppc.math.get('deviation', sd_power, v.get('power'), total_power / count),
+					dv_hot = ppc.math.get('deviation', sd_hot, v.get('hot'), ppc.user.get('hot_sum') / count),
+					$illust_report = ppc.parser.home.get('$illust_report', i);
+
+					v.set('dv_power', dv_power);
+					v.set('dv_hot', dv_hot);
 					$illust_report.append('<span class="report-link">鮮度&nbsp;<span class="count">' + v.get('freshment').toFixed(2) + '</span></span>');
 					$illust_report.append('<span class="report-link">パワー&nbsp;<span class="count">' + v.get('power') + '</span></span>');
-					$illust_report.append('<span class="report-link">偏差値&nbsp;<span class="count">' + v.get('deviation') + '</span></span>');
+					$illust_report.append('<span class="report-link">偏差値&nbsp;<span class="count">' + dv_power + '</span></span>');
 					$illust_report.append('<span class="report-link">タグ数&nbsp;<span class="count">' + ppc.utility.get('tags_num', v.get('tags_num_total'), v.get('tags_num_self')) + '</span></span>');
-					$('.display-report').eq(i).css('border-color', ppc.utility.get('color', v.get('deviation')));
+					$('.display-report').eq(i).css('border-color', ppc.utility.get('color', dv_power));
 					$('.display_works>ul>li').eq(i).find('.bookmark-count:first').html('<i class="_icon sprites-bookmark-badge"></i>' + v.get('bookmarked_total') + ' (' + v.get('bookmarked_public') + ' + ' + v.get('bookmarked_private') + ')');
+
 				});
 
 			}
@@ -1266,6 +1502,28 @@ ppc.old = gs(base, {
 					ppc.cookie.ppc.get('input', 'pidchk', false);
 				}
 				ppc.cookie.ppc.get('write');
+			});
+
+			// 作品ステータスマップの生成と表示
+			ppc.renderer.get('render').get('at', '#ppc_result', $('<div>', {
+				class: 'svg-whole',
+			}));
+			ppc.renderer.get('render').get('at', '.svg-whole', $('<h2>', {
+				text: '作品ステータスマップ',
+			}));
+			ppc.d3.whole.get('init', ppc.illusts);
+
+			$(window).on('scroll', function(){
+				var self = $(window);
+				var scroll_bottom = self.scrollTop() + self.height();
+				if (scroll_bottom > 1000) {
+					self.off('scroll');
+					$('.svg-whole').show('blind', {easing: 'easeInOutExpo'}, 1500, function(){
+						$(this).css({visibility:'visible'}).fadeIn(null, function(){
+							ppc.d3.whole.get('render');
+						});
+					});
+				}
 			});
 
 			// リンクを新しいタブで開くようにする
@@ -1601,6 +1859,7 @@ ppc.parser.created = gs(ppc.parser, {
 ppc.parser.template = gs(ppc.parser, {
 	selector: gs(base, {
 		summary: '#summary',
+		tooltip_whole: '.tooltip-whole',
 	}),
 });
 
@@ -1811,6 +2070,11 @@ ppc.utility = gs(base, {
 
 (function($){
 
+if ($('#buttons').length) {
+    alert('ページを再読み込みしてから実行してください。');
+    return;
+}
+
 if (location.href !== 'http://www.pixiv.net/member_illust.php' && location.href !== 'http://www.pixiv.net/member_illust.php?res=full' && location.href !== 'http://www.pixiv.net/member_illust.php?res=all') {
 	alert('http://www.pixiv.net/member_illust.php\nまたは\nhttp://www.pixiv.net/member_illust.php?res=full\nで実行してください。');
 	return;
@@ -1862,7 +2126,8 @@ ppc.illusts = [];
 
 // Load external libraries
 ([
-	'http://' + ppc.admin.get('domain') + '/js/ppc/jquery-ui-1.8.2.custom.min.js'
+	ppc.uri.get('js', 'jquery-ui.min'),
+	ppc.uri.get('js', 'd3.v3.min')
 ]);
 
 // 主な処理はここから開始
@@ -1874,11 +2139,6 @@ $('a', $leftColumn).attr('target', '_blank');
 $('.display_works>ul>li>span').wrap('<div class="status" />');
 
 ppc.renderer.get('removeAds');
-
-if ($('#message').length) {
-    alert('ページを再読み込みしてから実行してください。');
-    return;
-}
 
 $rightColumn.wrapInner('<div id="works" />');
 $rightColumn.wrap('<div id="tab_group" />');
@@ -2016,76 +2276,92 @@ ppc.parser.created.get('jq', 'tab_group').fadeOut('slow',function(){
 
 	// Wait until jQuery UI is completely loaded
 	var timer0 = window.setInterval(
+
 		function(){
+
 			try {
+
 				// タブ表示
-				ppc.parser.created.get('jq', 'tab_group').tabs({selected: 5, disabled: [1,2], fx:{opacity: 'toggle', duration: 'fast'}}).fadeIn('slow');
+				ppc.parser.created.get('jq', 'tab_group').tabs({
+					selected: 5,
+					disabled: [1,2],
+					show: {
+						effect: 'fadeIn',
+						duration: 200,
+					},
+					hide: {
+						effect: 'fadeOut',
+						duration: 200,
+					}
+				}).fadeIn('slow');
+
 				clearInterval(timer0);
 				ppc.logger.get('add', 'jQuery UIを読み込みました', 0);
+
+				try {
+					// テンプレートをダウンロード
+					$.getJSON(ppc.uri.get('ajax') + '/page/template' + '?callback=?', {}, function(data){
+						var $html = $(data.html);
+						ppc.parser.template.set('$doc', $html);
+						ppc.logger.get('add', 'テンプレートをダウンロードしました', 0);
+
+						// 測定ボタンを生成
+						$html.find('#btn-ppc').appendTo('#buttons');
+
+						// 2ページ目があるかどうか確認
+						// 確認後、開始ボタンを利用可にする
+						if (ppc.parser.home.get('length', 'page2') > 0) {
+							ppc.logger.get('add', '21以上の作品が検出されました', 1);
+							ppc.ajax.page2.get('load');
+						}
+						else {
+							ppc.renderer.get('activateStartButton');
+						}
+
+						// ログインステータスの表示
+						$('#buttons').appendHtml('login_status', function(){
+							if (window.addEventListener) {
+								window.addEventListener('message', function(e){
+									var data = JSON.parse(e.data);
+									if (e.origin === ppc.uri.get('home') || e.origin === ppc.uri.get('home') + '/') {
+										ppc.renderer.get('fillUserStatus', data);
+										ppc.renderer.get('fillRanking');
+									}
+								});
+							}
+							if (ppc.user.get('release') > 0) {
+								ppc.renderer.get('update', '#login_status .join', '参加');
+							}
+							else {
+								ppc.renderer.get('update', '#login_status .join', '不参加（「環境設定」から変更できます）');
+							}
+						});
+
+						// Twitterログインボタンの生成
+						ppc.renderer.get('render').get('at',
+							'#buttons',
+							$('<iframe>', {
+								id: 'login_with_twitter',
+								class: 'button',
+								name: 'login_with_twitter',
+								width: '120',
+								height: '34',
+								src: ppc.uri.get('home') + '/twitter/button',
+							})
+						);
+
+						// Tiwtterアイコン、screen nameの表示
+						ppc.renderer.get('render').get('at', '#buttons', $('<img>', {id:'profile_image'}));
+						ppc.renderer.get('render').get('at', '#buttons', $('<span>', {id:'screen_name', text:'Twitterとの連携でパワーの保存やランキングへの参加ができます'}));
+					});
+				}
+				catch (e) {
+					ppc.logger.get('error', e);
+				}
+
 			}
 			catch(e){
 				// ppc.logger.get('error', e);
-			}
-
-			try {
-				// テンプレートをダウンロード
-				$.getJSON(ppc.uri.get('ajax') + '/page/template' + '?callback=?', {}, function(data){
-					var $html = $(data.html);
-					ppc.parser.template.set('$doc', $html);
-					ppc.logger.get('add', 'テンプレートをダウンロードしました', 0);
-
-					// 測定ボタンを生成
-					$html.find('#btn-ppc').appendTo('#buttons');
-
-					// 2ページ目があるかどうか確認
-					// 確認後、開始ボタンを利用可にする
-					if (ppc.parser.home.get('length', 'page2') > 0) {
-						ppc.logger.get('add', '21以上の作品が検出されました', 1);
-						ppc.ajax.page2.get('load');
-					}
-					else {
-						ppc.renderer.get('activateStartButton');
-					}
-
-					// ログインステータスの表示
-					$('#buttons').appendHtml('login_status', function(){
-						if (window.addEventListener) {
-							window.addEventListener('message', function(e){
-								var data = JSON.parse(e.data);
-								if (e.origin === ppc.uri.get('home') || e.origin === ppc.uri.get('home') + '/') {
-									ppc.renderer.get('fillUserStatus', data);
-									ppc.renderer.get('fillRanking');
-								}
-							});
-						}
-						if (ppc.user.get('release') > 0) {
-							ppc.renderer.get('update', '#login_status .join', '参加');
-						}
-						else {
-							ppc.renderer.get('update', '#login_status .join', '不参加（「環境設定」から変更できます）');
-						}
-					});
-
-					// Twitterログインボタンの生成
-					ppc.renderer.get('render').get('at',
-						'#buttons',
-						$('<iframe>', {
-							id: 'login_with_twitter',
-							class: 'button',
-							name: 'login_with_twitter',
-							width: '120',
-							height: '34',
-							src: ppc.uri.get('home') + '/twitter/button',
-						})
-					);
-
-					// Tiwtterアイコン、screen nameの表示
-					ppc.renderer.get('render').get('at', '#buttons', $('<img>', {id:'profile_image'}));
-					ppc.renderer.get('render').get('at', '#buttons', $('<span>', {id:'screen_name', text:'Twitterとの連携でパワーの保存やランキングへの参加ができます'}));
-				});
-			}
-			catch (e) {
-				ppc.logger.get('error', e);
 			}
 
 		},100
