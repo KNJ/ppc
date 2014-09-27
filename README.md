@@ -23,7 +23,7 @@ pixivパワーチェッカーは、pixivにおける自分の影響力を測定�
 
 ## Logic
 
-閲覧数をはじめとする各投稿作品のパラメータおよび、投稿間隔やフォロワー数などの個人のパラメータを計算要素として利用しています。
+pixivパワーの算出には、閲覧数をはじめとする各投稿作品のパラメータおよび、投稿間隔やフォロワー数などの個人のパラメータを利用しています。
 
 ## Dependencies
 
@@ -31,6 +31,23 @@ pixivパワーチェッカーは、pixivにおける自分の影響力を測定�
 
 - [jQuery](http://jquery.com)
 - [jQuery UI](http://jqueryui.com)
+- [D3](http://d3js.org)
 - [Font Awesome by Dave Gandy](http://fontawesome.io)
 
 上記の他、eshies.netからHTMLテンプレートやスタイルシートなどの必要ファイルを取り出しています。
+
+## CLI
+
+測定完了後、ブラウザのコンソールから次のようなコマンドを実行することで、変数に保存された情報を見ることができます。
+
+ユーザー情報を見る場合
+
+```js
+ppc.user.getAll()
+```
+
+最新から3つ目のイラストの情報を見る場合
+
+```js
+ppc.illusts[2].getAll()
+```
