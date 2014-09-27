@@ -99,7 +99,7 @@ ppc.parser.illust = gs(ppc.parser, {
 		bookmarked: '.list-option:first',
 		bookmarked_total: '.bookmark-count:first',
 		image_response: '.image-response-count:first',
-		datetime: '.pipe-separated:first>li',
+		datetime: '.pipe-separated:first>li:first',
 		user_name: '.user-name:first',
 		tags: '.tags:first',
 		bookmarked_latest: '.bookmark-items>.bookmark-item:first',
