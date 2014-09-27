@@ -88,6 +88,7 @@ ppc.parser.created = gs(ppc.parser, {
 ppc.parser.template = gs(ppc.parser, {
 	selector: gs(base, {
 		summary: '#summary',
+		tooltip_whole: '.tooltip-whole',
 	}),
 });
 

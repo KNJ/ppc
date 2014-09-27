@@ -107,10 +107,8 @@
 					.text('投稿時刻');
 
 				// ツールチップ
-				var tooltip = d3.select(whole.get('field')).append('div')
-					.attr({
-						class: 'tooltip',
-					});
+				var $tooltip = ppc.parser.template.get('jq', 'tooltip_whole').clone().appendTo(whole.get('field'));
+				var tooltip = d3.select('.tooltip-whole');
 
 				// 点の描画
 				selection.selectAll('circle')
@@ -126,8 +124,12 @@
 							'fill-opacity': '1',
 						});
 
-						tooltip.html('<p class="title">' + d.get('title') + '</p><p class="thumbnail"></p><p>HOT: ' + (d.get('hot') | 0).comma() + '</p><p>パワー: ' + d.get('power').comma() + '</p>');
-						$('.tooltip .thumbnail').append(d.get('$thumbnail').clone());
+						$tooltip.find('.title').text(d.get('title')).end()
+						.find('.thumbnail').empty().append(d.get('$thumbnail').clone()).end()
+						.find('.hot').text((d.get('hot') | 0).comma()).end()
+						.find('.power').text(d.get('power').comma()).end()
+						.find('.date').text(d.get('date')).end()
+						.find('.time').text(d.get('time'));
 
 						var self = d3.select(this),
 						x = d3.select(this).attr('cx'),
