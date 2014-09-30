@@ -181,9 +181,9 @@ ppc.ajax.page2 = gs(ppc.ajax, {
 	url: ppc.uri.get('works_all') + '?res=' + ppc.user.get('scope') + '&p=2',
 	// 2ページ目をつなげる
 	_afterFilter: function(data){
-		var $html = $(data).find('.display_works:first').clone();
+		var $html = $(data).find('.display_editable_works:first').clone();
 
-		ppc.renderer.get('render').get('at', '.display_works', $html);
+		ppc.renderer.get('render').get('at', '.display_editable_works', $html);
 		this.get('_drop');
 		ppc.renderer.get('activateStartButton');
 		ppc.logger.get('add', '2ページ目の作品を追加しました');

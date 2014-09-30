@@ -354,7 +354,7 @@ ppc.old = gs(base, {
 					$illust_report.append('<span class="report-link">偏差値&nbsp;<span class="count">' + dv_power + '</span></span>');
 					$illust_report.append('<span class="report-link">タグ数&nbsp;<span class="count">' + ppc.utility.get('tags_num', v.get('tags_num_total'), v.get('tags_num_self')) + '</span></span>');
 					$('.display-report').eq(i).css('border-color', ppc.utility.get('color', dv_power));
-					$('.display_works>ul>li').eq(i).find('.bookmark-count:first').html('<i class="_icon sprites-bookmark-badge"></i>' + v.get('bookmarked_total') + ' (' + v.get('bookmarked_public') + ' + ' + v.get('bookmarked_private') + ')');
+					$('.display_editable_works>ul>li').eq(i).find('.bookmark-count:first').html('<i class="_icon sprites-bookmark-badge"></i>' + v.get('bookmarked_total') + ' (' + v.get('bookmarked_public') + ' + ' + v.get('bookmarked_private') + ')');
 
 				});
 

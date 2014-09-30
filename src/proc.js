@@ -66,7 +66,7 @@ var $rightColumn = ppc.parser.get('jq', 'col_r');
 
 $('<div>', {id:'buttons', class:'right-container'}).prependTo('.layout-column-2');
 $('a', $leftColumn).attr('target', '_blank');
-$('.display_works>ul>li>span').wrap('<div class="status" />');
+$('.display_editable_works>ul>li>span').wrap('<div class="status" />');
 
 ppc.renderer.get('removeAds');
 

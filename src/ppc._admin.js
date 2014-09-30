@@ -3,7 +3,7 @@
 // 管理者設定 (static)
 ppc.admin = gs(base, {
 	version: gs(base, {
-		script: '140928',
+		script: '141001',
 		css: '140926',
 	}),
 	canonical_domain: 'eshies.net',

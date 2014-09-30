@@ -1,4 +1,4 @@
-(function(){
+(function($){
 
 // Parser
 ppc.parser = gs(base, {
@@ -38,12 +38,12 @@ ppc.parser = gs(base, {
 ppc.parser.home = gs(ppc.parser, {
 	selector: gs(base, {
 		contents: '#wrapper',
-		illust: '.display_works>ul>li',
-		illust_anchor: '.display_works a[href^="member_illust.php?mode=medium&illust_id="]',
+		illust: '.display_editable_works>ul>li',
+		illust_anchor: '.display_editable_works a[href^="member_illust.php?mode=medium&illust_id="]',
 		user_id: 'a[href^="member_illust.php?id="]:first',
 		page2: '.page-list a[href*="p=2"]',
 		posted: '.column-header .count-badge:first',
-		works: '.display_works:first',
+		works: '.display_editable_works:first',
 	}),
 	ads: [
 		'.ads_area',
@@ -52,7 +52,7 @@ ppc.parser.home = gs(ppc.parser, {
 		'.column-header+aside',
 	],
 	illust_jq: function(i){
-		return $('.display_works>ul>li').eq(i);
+		return $('.display_editable_works>ul>li').eq(i);
 	},
 	illust_id: function(i){
 		return this.get('illust_jq', i).find('input[id^="i_"]:first').val();
@@ -119,4 +119,4 @@ ppc.parser.follower = gs(ppc.parser, {
 // parser - イラストごとにオブジェクトを継承($docが異なるため)
 ppc.parser.illust.illusts = [];
 
-})();
+})(jQuery);
