@@ -15,22 +15,54 @@ Number.prototype.comma = function(){
 	return this.toString().replace(/([0-9]+?)(?=(?:[0-9]{3})+$)/g, '$1,');
 };
 
-// カプセル化
-var gs = function(base, ex){
+// Cloz
+var cloz = function(base, ex){
+	base = base || {};
 	var derived = {};
 	var o = Object.create(base);
 
 	derived.get = function(prop){
+		if (typeof prop !== 'string') {
+			throw new Error('The first argument of cloz.get() must be string.');
+		}
 		if (typeof o[prop] === 'undefined') {
-			return base.get.apply(this, arguments);
+			if (base.hasOwnProperty('get')) {
+				return base.get.apply(this, arguments);
+			}
+			else {
+				throw new Error('Cannot find property "' + prop + '"');
+			}
 		}
 		else if (typeof o[prop] === 'function') {
-			var arg = [];
+			var args = [];
 			for (var i = 1; i < arguments.length; i++) {
-				arg.push(arguments[i]);
+				args.push(arguments[i]);
 			}
-
-			return o[prop].apply(this, arg);
+			return o[prop].apply(this, args);
+		}
+		else {
+			return o[prop];
+		}
+	};
+	derived.gain = function(prop, val){
+		if (typeof prop !== 'string') {
+			throw new Error('The first argument of cloz.gain() must be string');
+		}
+		if (typeof o[prop] === 'undefined') {
+			if (base.hasOwnProperty('get')) {
+				return base.gain.apply(this, arguments);
+			}
+			else {
+				val = val || null;
+				return val;
+			}
+		}
+		else if (typeof o[prop] === 'function') {
+			var args = [];
+			for (var i = 2; i < arguments.length; i++) {
+				args.push(arguments[i]);
+			}
+			return o[prop].apply(this, args);
 		}
 		else {
 			return o[prop];
@@ -39,8 +71,18 @@ var gs = function(base, ex){
 	derived.getAll = function(){
 		return o;
 	};
-	derived.set = function(prop, value){
-		o[prop] = value;
+	derived.set = function(prop, val){
+		if (typeof prop !== 'string') {
+			throw new Error('The first argument of cloz.set() must be string');
+		}
+		o[prop] = val;
+		return o[prop];
+	};
+	derived.extend = function(prop, obj){
+		if (typeof prop !== 'string') {
+			throw new Error('The first argument of cloz.extend() must be string');
+		}
+		o[prop] = cloz(this.get(prop), obj);
 		return o[prop];
 	};
 
@@ -48,6 +90,18 @@ var gs = function(base, ex){
 		for (var p in ex) {
 			derived.set(p, ex[p]);
 		}
+		if (ex.hasOwnProperty('__cloz')) {
+			ex.__cloz();
+		}
+		if (ex.hasOwnProperty('_cloz')) {
+			ex._cloz();
+		}
+		else {
+			derived.gain('_cloz');
+		}
+	}
+	else {
+		derived.gain('_cloz');
 	}
 
 	return derived;
@@ -74,9 +128,9 @@ var $ppc_result = $('<div>').attr('id', 'ppc_result');
 (function(){
 
 // 管理者設定 (static)
-ppc.admin = gs(base, {
-	version: gs(base, {
-		script: '140928',
+ppc.admin = cloz(base, {
+	version: cloz(base, {
+		script: '141001',
 		css: '140926',
 	}),
 	canonical_domain: 'eshies.net',
@@ -91,7 +145,7 @@ ppc.admin = gs(base, {
 (function(){
 
 // URI (static)
-ppc.uri = gs(base, {
+ppc.uri = cloz(base, {
 	works_all: 'http://www.pixiv.net/member_illust.php',
 	illust: function(id){ return 'http://www.pixiv.net/member_illust.php?mode=medium&illust_id=' + id; },
 	illust_bookmarks: function(id){ return 'http://www.pixiv.net/bookmark_detail.php?illust_id=' + id; },
@@ -109,7 +163,7 @@ ppc.uri = gs(base, {
 (function(){
 
 // ユーザー設定 (static)
-ppc.user = gs(base, {
+ppc.user = cloz(base, {
 	// 自動取得
 	id: null,
 	nickname: null,
@@ -133,7 +187,7 @@ ppc.user = gs(base, {
 (function(){
 
 // Ajax
-ppc.ajax = gs(base, {
+ppc.ajax = cloz(base, {
 	url: null,
 	type: 'GET',
 	data_type: 'html',
@@ -167,7 +221,7 @@ ppc.ajax = gs(base, {
 });
 
 // ajax - イラスト情報をスクレイピング
-ppc.ajax.illust = gs(ppc.ajax, {
+ppc.ajax.illust = cloz(ppc.ajax, {
 	active: 0,
 	complete: 0,
 	index: 0,
@@ -282,7 +336,7 @@ ppc.ajax.illust = gs(ppc.ajax, {
 });
 
 // ajax - フォロワー数やマイピク数をスクレイピング
-ppc.ajax.follower = gs(ppc.ajax, {
+ppc.ajax.follower = cloz(ppc.ajax, {
 	url: 'http://www.pixiv.net/bookmark.php?type=reg_user',
 	_afterFilter: function(html){
 		try {
@@ -309,13 +363,13 @@ ppc.ajax.follower = gs(ppc.ajax, {
 });
 
 // ajax - 2ページ目
-ppc.ajax.page2 = gs(ppc.ajax, {
+ppc.ajax.page2 = cloz(ppc.ajax, {
 	url: ppc.uri.get('works_all') + '?res=' + ppc.user.get('scope') + '&p=2',
 	// 2ページ目をつなげる
 	_afterFilter: function(data){
-		var $html = $(data).find('.display_works:first').clone();
+		var $html = $(data).find('.display_editable_works:first').clone();
 
-		ppc.renderer.get('render').get('at', '.display_works', $html);
+		ppc.renderer.get('render').get('at', '.display_editable_works', $html);
 		this.get('_drop');
 		ppc.renderer.get('activateStartButton');
 		ppc.logger.get('add', '2ページ目の作品を追加しました');
@@ -338,10 +392,10 @@ ppc.ajax.page2 = gs(ppc.ajax, {
 (function(){
 
 // 定数
-ppc.constants = gs(base, {
+ppc.constants = cloz(base, {
 	rank_list: [0, 1000, 10000, 100000, 300000, 1000000, 10000000, 100000000],
 	ranker_list: [17, 359, 2128, 950, 610, 518, 89, 5],
-	sort_keys: gs(base, {
+	sort_keys: cloz(base, {
 		id: '投稿日時',
 		viewed: '閲覧数',
 		scored: '総合点',
@@ -361,7 +415,7 @@ ppc.constants = gs(base, {
 (function(){
 
 // Cookie (each cookie inherits from this)
-ppc.cookie = gs(base, {
+ppc.cookie = cloz(base, {
 	name: '', // cookie名
 	params: {},
 	expires: 150,
@@ -407,7 +461,7 @@ ppc.cookie = gs(base, {
 	},
 });
 
-ppc.cookie.ppc = gs(ppc.cookie, {
+ppc.cookie.ppc = cloz(ppc.cookie, {
 	name: 'ppc',
 });
 ppc.cookie.ppc.get('read');
@@ -417,13 +471,13 @@ ppc.cookie.ppc.get('read');
 (function($){
 
 	// D3
-	ppc.d3 = gs(base, {
+	ppc.d3 = cloz(base, {
 		field: null,
 		dataset: [],
 		selection: null,
 		width: 744,
 		height: 360,
-		padding: gs(base, {
+		padding: cloz(base, {
 			top: 60,
 			right: 50,
 			bottom: 60,
@@ -443,7 +497,7 @@ ppc.cookie.ppc.get('read');
 		},
 	});
 
-	ppc.d3.whole = gs(ppc.d3, {
+	ppc.d3.whole = cloz(ppc.d3, {
 		field: '.svg-whole',
 		render: function(){
 			try {
@@ -630,7 +684,7 @@ ppc.cookie.ppc.get('read');
 (function(){
 
 // Illust (each iilust inherits from this)
-ppc.illust = gs(base, {
+ppc.illust = cloz(base, {
 	id: null,
 	title: null,
 	html: null,
@@ -670,7 +724,7 @@ ppc.illust = gs(base, {
 (function($){
 
 // Logger (static)
-ppc.logger = gs(base, {
+ppc.logger = cloz(base, {
 	log: [],
 	add: function(message, level, id){
 		id = id || null;
@@ -717,7 +771,7 @@ ppc.logger = gs(base, {
 (function(){
 
 // Manager (static)
-ppc.manager = gs(base, {
+ppc.manager = cloz(base, {
 	init: function(){
 		try {
 			ppc.logger.get('add', 'PPCの初期化を開始しました', 0, 'start initialization');
@@ -772,7 +826,7 @@ ppc.manager = gs(base, {
 					}
 				}
 				box[i] = id;
-				var ins = gs(ppc.illust, {
+				var ins = cloz(ppc.illust, {
 					id: id,
 				});
 				ppc.illusts[i] = ins;
@@ -820,7 +874,7 @@ ppc.manager = gs(base, {
 				$html = ppc.illusts[i].get('jq');
 
 				// イラストごとにオブジェクトを継承
-				ppc.parser.illust.illusts[i] = gs(ppc.parser.illust, {
+				ppc.parser.illust.illusts[i] = cloz(ppc.parser.illust, {
 					$doc: $html,
 					$image_response: null,
 				});
@@ -1062,7 +1116,7 @@ ppc.manager = gs(base, {
 (function(){
 
 // Math (static)
-ppc.math = gs(base, {
+ppc.math = cloz(base, {
 	div: function(a, b){
 		if (!b) { return 0; }
 		return a / b;
@@ -1103,7 +1157,7 @@ ppc.math = gs(base, {
 (function($){
 
 // Old (static)
-ppc.old = gs(base, {
+ppc.old = cloz(base, {
 	button: function(){
 		try {
 			$('#btn-ppc').addClass('disabled').text('測定しています').off();
@@ -1456,7 +1510,7 @@ ppc.old = gs(base, {
 					$illust_report.append('<span class="report-link">偏差値&nbsp;<span class="count">' + dv_power + '</span></span>');
 					$illust_report.append('<span class="report-link">タグ数&nbsp;<span class="count">' + ppc.utility.get('tags_num', v.get('tags_num_total'), v.get('tags_num_self')) + '</span></span>');
 					$('.display-report').eq(i).css('border-color', ppc.utility.get('color', dv_power));
-					$('.display_works>ul>li').eq(i).find('.bookmark-count:first').html('<i class="_icon sprites-bookmark-badge"></i>' + v.get('bookmarked_total') + ' (' + v.get('bookmarked_public') + ' + ' + v.get('bookmarked_private') + ')');
+					$('.display_editable_works>ul>li').eq(i).find('.bookmark-count:first').html('<i class="_icon sprites-bookmark-badge"></i>' + v.get('bookmarked_total') + ' (' + v.get('bookmarked_public') + ' + ' + v.get('bookmarked_private') + ')');
 
 				});
 
@@ -1633,33 +1687,6 @@ ppc.old = gs(base, {
 			return false;
 		}
 	},
-	createArrayForTable: function(elem){
-		var a = [['', (elem[0])[0]]];
-		$.each(elem, function(i, value){
-			if(i){
-				a[0].push('/' + value[0]);
-			}
-		});
-		var len1 = elem.length;
-		for(var i=0; i < len1; i++){
-			if(i){
-				a.push([]);
-				var len2 = len1 + 1;
-				for(var j=0; j < len2; j++){
-					if(!j){
-						a[i].push((elem[i])[0]);
-					}
-					else if(j === 1){
-						a[i].push(Number((elem[i])[1]) | 0);
-					}
-					else {
-						a[i].push((ppc.math.get('div', elem[i][1], elem[j-1][1])).toFixed(2));
-					}
-				}
-			}
-		}
-	return a;
-	},
 	// 作品詳細の並べ替え
 	arrange: function(text, illusts, order){
 		var order_text = order === 'desc' ? '降順' : '昇順';
@@ -1723,7 +1750,7 @@ ppc.old = gs(base, {
 
 				$('<div>', {
 					class:'detailBottom',
-					html: ppc.utility.get('createTableHtml', ppc.old.get('createArrayForTable', v.get('elements')), '#f3f3f3', true),
+					html: ppc.utility.get('createTableHtml', ppc.utility.get('createArrayForTable', v.get('elements')), '#f3f3f3', true),
 				}).appendTo('#sortableList li.works:last').prepend(
 					$('<div>',{
 						class:'toggleNext',
@@ -1769,12 +1796,12 @@ ppc.old = gs(base, {
 
 })(jQuery);
 
-(function(){
+(function($){
 
 // Parser
-ppc.parser = gs(base, {
+ppc.parser = cloz(base, {
 	$doc: $(document),
-	selector: gs(base, {
+	selector: cloz(base, {
 		col_l: '.layout-a .ui-layout-west',
 		col_r: '.layout-a ._unit',
 		nickname: '.user-name:first',
@@ -1806,24 +1833,25 @@ ppc.parser = gs(base, {
 });
 
 // parser - イラスト管理ページ(member_illust.php)
-ppc.parser.home = gs(ppc.parser, {
-	selector: gs(base, {
+ppc.parser.home = cloz(ppc.parser, {
+	selector: cloz(base, {
 		contents: '#wrapper',
-		illust: '.display_works>ul>li',
-		illust_anchor: '.display_works a[href^="member_illust.php?mode=medium&illust_id="]',
+		illust: '.display_editable_works>ul>li',
+		illust_anchor: '.display_editable_works a[href^="member_illust.php?mode=medium&illust_id="]',
 		user_id: 'a[href^="member_illust.php?id="]:first',
 		page2: '.page-list a[href*="p=2"]',
 		posted: '.column-header .count-badge:first',
-		works: '.display_works:first',
+		works: '.display_editable_works:first',
 	}),
 	ads: [
 		'.ads_area',
+		'.ads_area_y',
 		'.area_new:has(a[href*="ads.pixiv"])',
 		'a[href*="ads.pixiv"]',
 		'.column-header+aside',
 	],
 	illust_jq: function(i){
-		return $('.display_works>ul>li').eq(i);
+		return $('.display_editable_works>ul>li').eq(i);
 	},
 	illust_id: function(i){
 		return this.get('illust_jq', i).find('input[id^="i_"]:first').val();
@@ -1843,8 +1871,8 @@ ppc.parser.home = gs(ppc.parser, {
 });
 
 // parser - 新たに生成したもの
-ppc.parser.created = gs(ppc.parser, {
-	selector: gs(base, {
+ppc.parser.created = cloz(ppc.parser, {
+	selector: cloz(base, {
 		connections: '#maxconn option:selected',
 		guest: '#gstchk',
 		log: '#ppc_log',
@@ -1856,16 +1884,16 @@ ppc.parser.created = gs(ppc.parser, {
 });
 
 // parser - テンプレート
-ppc.parser.template = gs(ppc.parser, {
-	selector: gs(base, {
+ppc.parser.template = cloz(ppc.parser, {
+	selector: cloz(base, {
 		summary: '#summary',
 		tooltip_whole: '.tooltip-whole',
 	}),
 });
 
 // parser - 個別イラストブックマークページ(bookmark_detail.php?illust_id=)
-ppc.parser.illust = gs(ppc.parser, {
-	selector: gs(base, {
+ppc.parser.illust = cloz(ppc.parser, {
+	selector: cloz(base, {
 		title: '.title>.self',
 		bookmarked: '.list-option:first',
 		bookmarked_total: '.bookmark-count:first',
@@ -1880,8 +1908,8 @@ ppc.parser.illust = gs(ppc.parser, {
 });
 
 // parser - フォロワーページ(bookmark.php?type=reg_user)
-ppc.parser.follower = gs(ppc.parser, {
-	selector: gs(base, {
+ppc.parser.follower = cloz(ppc.parser, {
+	selector: cloz(base, {
 		followers: '.info:first .count:first',
 		my_pixiv: '.mypixiv-unit:first>.unit-count'
 	}),
@@ -1890,12 +1918,12 @@ ppc.parser.follower = gs(ppc.parser, {
 // parser - イラストごとにオブジェクトを継承($docが異なるため)
 ppc.parser.illust.illusts = [];
 
-})();
+})(jQuery);
 
 (function(){
 
 // Rank (static)
-ppc.rank = gs(base, {
+ppc.rank = cloz(base, {
 	bookmarked: [7.2, 3.8, 2.4, 1.2, 0],
 	rated: [14, 10, 6, 3, 0],
 	scored: [9.96, 9.8, 9.4, 8.8, 0],
@@ -1906,13 +1934,13 @@ ppc.rank = gs(base, {
 (function($){
 
 // Renderer
-ppc.renderer = gs(base, {
-	load: gs(base, {
+ppc.renderer = cloz(base, {
+	load: cloz(base, {
 		css: function(href){
 			$('<link rel="stylesheet" href="' + href + '.css">').appendTo('head');
 		}
 	}),
-	render: gs(base, {
+	render: cloz(base, {
 		at: function(selector, jq){
 			return jq.appendTo(selector);
 		},
@@ -2009,7 +2037,7 @@ ppc.renderer = gs(base, {
 (function($){
 
 // Utility (static)
-ppc.utility = gs(base, {
+ppc.utility = cloz(base, {
 	color: function(deviation){
 		if(deviation <= 50){ return 'rgb(247,231,183)'; }
 		else{
@@ -2031,6 +2059,33 @@ ppc.utility = gs(base, {
 			return (n < v);
 		});
 		return rating;
+	},
+	createArrayForTable: function(elem){
+		var a = [['', (elem[0])[0]]];
+		$.each(elem, function(i, value){
+			if(i){
+				a[0].push('/' + value[0]);
+			}
+		});
+		var len1 = elem.length;
+		for(var i=0; i < len1; i++){
+			if(i){
+				a.push([]);
+				var len2 = len1 + 1;
+				for(var j=0; j < len2; j++){
+					if(!j){
+						a[i].push((elem[i])[0]);
+					}
+					else if(j === 1){
+						a[i].push(Number((elem[i])[1]) | 0);
+					}
+					else {
+						a[i].push((ppc.math.get('div', elem[i][1], elem[j-1][1])).toFixed(2));
+					}
+				}
+			}
+		}
+	return a;
 	},
 	createTableHtml: function(ary, bgColor, bool){
 		var t = '<table>';
@@ -2136,7 +2191,7 @@ var $rightColumn = ppc.parser.get('jq', 'col_r');
 
 $('<div>', {id:'buttons', class:'right-container'}).prependTo('.layout-column-2');
 $('a', $leftColumn).attr('target', '_blank');
-$('.display_works>ul>li>span').wrap('<div class="status" />');
+$('.display_editable_works>ul>li>span').wrap('<div class="status" />');
 
 ppc.renderer.get('removeAds');
 
