@@ -47,6 +47,7 @@ ppc.parser.home = cloz(ppc.parser, {
 	}),
 	ads: [
 		'.ads_area',
+		'.ads_area_y',
 		'.area_new:has(a[href*="ads.pixiv"])',
 		'a[href*="ads.pixiv"]',
 		'.column-header+aside',
