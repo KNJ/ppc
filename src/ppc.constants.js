@@ -1,10 +1,10 @@
 (function(){
 
 // 定数
-ppc.constants = gs(base, {
+ppc.constants = cloz(base, {
 	rank_list: [0, 1000, 10000, 100000, 300000, 1000000, 10000000, 100000000],
 	ranker_list: [17, 359, 2128, 950, 610, 518, 89, 5],
-	sort_keys: gs(base, {
+	sort_keys: cloz(base, {
 		id: '投稿日時',
 		viewed: '閲覧数',
 		scored: '総合点',

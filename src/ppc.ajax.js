@@ -1,7 +1,7 @@
 (function(){
 
 // Ajax
-ppc.ajax = gs(base, {
+ppc.ajax = cloz(base, {
 	url: null,
 	type: 'GET',
 	data_type: 'html',
@@ -35,7 +35,7 @@ ppc.ajax = gs(base, {
 });
 
 // ajax - イラスト情報をスクレイピング
-ppc.ajax.illust = gs(ppc.ajax, {
+ppc.ajax.illust = cloz(ppc.ajax, {
 	active: 0,
 	complete: 0,
 	index: 0,
@@ -150,7 +150,7 @@ ppc.ajax.illust = gs(ppc.ajax, {
 });
 
 // ajax - フォロワー数やマイピク数をスクレイピング
-ppc.ajax.follower = gs(ppc.ajax, {
+ppc.ajax.follower = cloz(ppc.ajax, {
 	url: 'http://www.pixiv.net/bookmark.php?type=reg_user',
 	_afterFilter: function(html){
 		try {
@@ -177,7 +177,7 @@ ppc.ajax.follower = gs(ppc.ajax, {
 });
 
 // ajax - 2ページ目
-ppc.ajax.page2 = gs(ppc.ajax, {
+ppc.ajax.page2 = cloz(ppc.ajax, {
 	url: ppc.uri.get('works_all') + '?res=' + ppc.user.get('scope') + '&p=2',
 	// 2ページ目をつなげる
 	_afterFilter: function(data){

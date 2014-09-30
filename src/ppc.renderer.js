@@ -1,13 +1,13 @@
 (function($){
 
 // Renderer
-ppc.renderer = gs(base, {
-	load: gs(base, {
+ppc.renderer = cloz(base, {
+	load: cloz(base, {
 		css: function(href){
 			$('<link rel="stylesheet" href="' + href + '.css">').appendTo('head');
 		}
 	}),
-	render: gs(base, {
+	render: cloz(base, {
 		at: function(selector, jq){
 			return jq.appendTo(selector);
 		},

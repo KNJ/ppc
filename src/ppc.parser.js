@@ -1,9 +1,9 @@
 (function($){
 
 // Parser
-ppc.parser = gs(base, {
+ppc.parser = cloz(base, {
 	$doc: $(document),
-	selector: gs(base, {
+	selector: cloz(base, {
 		col_l: '.layout-a .ui-layout-west',
 		col_r: '.layout-a ._unit',
 		nickname: '.user-name:first',
@@ -35,8 +35,8 @@ ppc.parser = gs(base, {
 });
 
 // parser - イラスト管理ページ(member_illust.php)
-ppc.parser.home = gs(ppc.parser, {
-	selector: gs(base, {
+ppc.parser.home = cloz(ppc.parser, {
+	selector: cloz(base, {
 		contents: '#wrapper',
 		illust: '.display_editable_works>ul>li',
 		illust_anchor: '.display_editable_works a[href^="member_illust.php?mode=medium&illust_id="]',
@@ -72,8 +72,8 @@ ppc.parser.home = gs(ppc.parser, {
 });
 
 // parser - 新たに生成したもの
-ppc.parser.created = gs(ppc.parser, {
-	selector: gs(base, {
+ppc.parser.created = cloz(ppc.parser, {
+	selector: cloz(base, {
 		connections: '#maxconn option:selected',
 		guest: '#gstchk',
 		log: '#ppc_log',
@@ -85,16 +85,16 @@ ppc.parser.created = gs(ppc.parser, {
 });
 
 // parser - テンプレート
-ppc.parser.template = gs(ppc.parser, {
-	selector: gs(base, {
+ppc.parser.template = cloz(ppc.parser, {
+	selector: cloz(base, {
 		summary: '#summary',
 		tooltip_whole: '.tooltip-whole',
 	}),
 });
 
 // parser - 個別イラストブックマークページ(bookmark_detail.php?illust_id=)
-ppc.parser.illust = gs(ppc.parser, {
-	selector: gs(base, {
+ppc.parser.illust = cloz(ppc.parser, {
+	selector: cloz(base, {
 		title: '.title>.self',
 		bookmarked: '.list-option:first',
 		bookmarked_total: '.bookmark-count:first',
@@ -109,8 +109,8 @@ ppc.parser.illust = gs(ppc.parser, {
 });
 
 // parser - フォロワーページ(bookmark.php?type=reg_user)
-ppc.parser.follower = gs(ppc.parser, {
-	selector: gs(base, {
+ppc.parser.follower = cloz(ppc.parser, {
+	selector: cloz(base, {
 		followers: '.info:first .count:first',
 		my_pixiv: '.mypixiv-unit:first>.unit-count'
 	}),

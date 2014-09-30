@@ -1,7 +1,7 @@
 (function(){
 
 // Math (static)
-ppc.math = gs(base, {
+ppc.math = cloz(base, {
 	div: function(a, b){
 		if (!b) { return 0; }
 		return a / b;

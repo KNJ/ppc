@@ -1,7 +1,7 @@
 (function(){
 
 // URI (static)
-ppc.uri = gs(base, {
+ppc.uri = cloz(base, {
 	works_all: 'http://www.pixiv.net/member_illust.php',
 	illust: function(id){ return 'http://www.pixiv.net/member_illust.php?mode=medium&illust_id=' + id; },
 	illust_bookmarks: function(id){ return 'http://www.pixiv.net/bookmark_detail.php?illust_id=' + id; },

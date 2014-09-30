@@ -1,7 +1,7 @@
 (function($){
 
 // Logger (static)
-ppc.logger = gs(base, {
+ppc.logger = cloz(base, {
 	log: [],
 	add: function(message, level, id){
 		id = id || null;

@@ -1,7 +1,7 @@
 (function(){
 
 // Cookie (each cookie inherits from this)
-ppc.cookie = gs(base, {
+ppc.cookie = cloz(base, {
 	name: '', // cookie名
 	params: {},
 	expires: 150,
@@ -47,7 +47,7 @@ ppc.cookie = gs(base, {
 	},
 });
 
-ppc.cookie.ppc = gs(ppc.cookie, {
+ppc.cookie.ppc = cloz(ppc.cookie, {
 	name: 'ppc',
 });
 ppc.cookie.ppc.get('read');

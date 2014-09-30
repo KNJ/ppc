@@ -1,7 +1,7 @@
 (function(){
 
 // Illust (each iilust inherits from this)
-ppc.illust = gs(base, {
+ppc.illust = cloz(base, {
 	id: null,
 	title: null,
 	html: null,

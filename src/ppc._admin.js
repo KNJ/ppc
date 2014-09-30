@@ -1,8 +1,8 @@
 (function(){
 
 // 管理者設定 (static)
-ppc.admin = gs(base, {
-	version: gs(base, {
+ppc.admin = cloz(base, {
+	version: cloz(base, {
 		script: '141001',
 		css: '140926',
 	}),

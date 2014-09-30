@@ -1,7 +1,7 @@
 (function(){
 
 // Manager (static)
-ppc.manager = gs(base, {
+ppc.manager = cloz(base, {
 	init: function(){
 		try {
 			ppc.logger.get('add', 'PPCの初期化を開始しました', 0, 'start initialization');
@@ -56,7 +56,7 @@ ppc.manager = gs(base, {
 					}
 				}
 				box[i] = id;
-				var ins = gs(ppc.illust, {
+				var ins = cloz(ppc.illust, {
 					id: id,
 				});
 				ppc.illusts[i] = ins;
@@ -104,7 +104,7 @@ ppc.manager = gs(base, {
 				$html = ppc.illusts[i].get('jq');
 
 				// イラストごとにオブジェクトを継承
-				ppc.parser.illust.illusts[i] = gs(ppc.parser.illust, {
+				ppc.parser.illust.illusts[i] = cloz(ppc.parser.illust, {
 					$doc: $html,
 					$image_response: null,
 				});

@@ -1,13 +1,13 @@
 (function($){
 
 	// D3
-	ppc.d3 = gs(base, {
+	ppc.d3 = cloz(base, {
 		field: null,
 		dataset: [],
 		selection: null,
 		width: 744,
 		height: 360,
-		padding: gs(base, {
+		padding: cloz(base, {
 			top: 60,
 			right: 50,
 			bottom: 60,
@@ -27,7 +27,7 @@
 		},
 	});
 
-	ppc.d3.whole = gs(ppc.d3, {
+	ppc.d3.whole = cloz(ppc.d3, {
 		field: '.svg-whole',
 		render: function(){
 			try {

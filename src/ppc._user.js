@@ -1,7 +1,7 @@
 (function(){
 
 // ユーザー設定 (static)
-ppc.user = gs(base, {
+ppc.user = cloz(base, {
 	// 自動取得
 	id: null,
 	nickname: null,

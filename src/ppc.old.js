@@ -1,7 +1,7 @@
 (function($){
 
 // Old (static)
-ppc.old = gs(base, {
+ppc.old = cloz(base, {
 	button: function(){
 		try {
 			$('#btn-ppc').addClass('disabled').text('測定しています').off();

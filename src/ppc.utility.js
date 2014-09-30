@@ -1,7 +1,7 @@
 (function($){
 
 // Utility (static)
-ppc.utility = gs(base, {
+ppc.utility = cloz(base, {
 	color: function(deviation){
 		if(deviation <= 50){ return 'rgb(247,231,183)'; }
 		else{
