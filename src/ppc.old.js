@@ -531,33 +531,6 @@ ppc.old = gs(base, {
 			return false;
 		}
 	},
-	createArrayForTable: function(elem){
-		var a = [['', (elem[0])[0]]];
-		$.each(elem, function(i, value){
-			if(i){
-				a[0].push('/' + value[0]);
-			}
-		});
-		var len1 = elem.length;
-		for(var i=0; i < len1; i++){
-			if(i){
-				a.push([]);
-				var len2 = len1 + 1;
-				for(var j=0; j < len2; j++){
-					if(!j){
-						a[i].push((elem[i])[0]);
-					}
-					else if(j === 1){
-						a[i].push(Number((elem[i])[1]) | 0);
-					}
-					else {
-						a[i].push((ppc.math.get('div', elem[i][1], elem[j-1][1])).toFixed(2));
-					}
-				}
-			}
-		}
-	return a;
-	},
 	// 作品詳細の並べ替え
 	arrange: function(text, illusts, order){
 		var order_text = order === 'desc' ? '降順' : '昇順';
@@ -621,7 +594,7 @@ ppc.old = gs(base, {
 
 				$('<div>', {
 					class:'detailBottom',
-					html: ppc.utility.get('createTableHtml', ppc.old.get('createArrayForTable', v.get('elements')), '#f3f3f3', true),
+					html: ppc.utility.get('createTableHtml', ppc.utility.get('createArrayForTable', v.get('elements')), '#f3f3f3', true),
 				}).appendTo('#sortableList li.works:last').prepend(
 					$('<div>',{
 						class:'toggleNext',
