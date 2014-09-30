@@ -51,3 +51,5 @@ ppc.user.getAll()
 ```js
 ppc.illusts[2].getAll()
 ```
+
+その他のAPIは[Cloz](https://github.com/KNJ/cloz)を参照してください。
