@@ -17,6 +17,8 @@ $.fn.extend({
 
 senbei = function(configuration, conditions){
 
+	conditions = conditions || [];
+
 	// クッキーのデフォルト有効期限（1ヶ月）
 	var exp = new Date();
 	exp.setMonth(exp.getMonth() + 1);
@@ -146,7 +148,7 @@ senbei = function(configuration, conditions){
 		// 変更が行われた要素と同じnameをもつ要素群
 		var $selves = $('[name="' + name + '"]');
 
-		// strageに書き込み
+		// storageに書き込み
 		// ----- start writing -----
 
 		var write = forceArray(o.conf.write);
@@ -170,8 +172,8 @@ senbei = function(configuration, conditions){
 			else if (String(v).toLowerCase() === 'cookie') {
 				writeCookie(o.conf.name, storage, o.conf.cookie);
 			}
-			else if (v !== null) {
-				v = storage;
+			else if (typeof v === 'function') {
+				v(storage);
 			}
 
 		});
@@ -185,8 +187,7 @@ senbei = function(configuration, conditions){
 		var w = $.extend({
 			name: 'f' + i,
 			base: null, // jQuery object
-			conditions: function(){ return null; }, // Function returning String or Array
-			connective: 'and',
+			conditions: function(){ return null; },
 			t: function(){ return null; },
 			f: function(){ return null; },
 			n: function(){ return null; },
