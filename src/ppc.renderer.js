@@ -208,7 +208,8 @@ ppc.renderer = cloz(base, {
 		$('<ul>', {id: 'sortableList'}).appendTo('#detail .column-body');
 
 	},
-	init4: function(){
+	senbei: function(){
+		ppc.senbei.get('init');
 	},
 	fillUserStatus: function(data){
 		try {
