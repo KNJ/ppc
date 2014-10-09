@@ -16,9 +16,21 @@ var cloz = function(base, ex){
 	base = base || {};
 	var derived = {};
 	var o = Object.create(base);
+	var isStr = function(prop){
+		if (Object.prototype.toString.call(prop) === '[object String]') {
+			return true;
+		}
+		return false;
+	};
+	var isObj = function(prop){
+		if (Object.prototype.toString.call(prop) === '[object Object]') {
+			return true;
+		}
+		return false;
+	};
 
 	derived.get = function(prop){
-		if (typeof prop !== 'string') {
+		if (!isStr(prop)) {
 			throw new Error('The first argument of cloz.get() must be string.');
 		}
 		if (typeof o[prop] === 'undefined') {
@@ -41,7 +53,7 @@ var cloz = function(base, ex){
 		}
 	};
 	derived.gain = function(prop, val){
-		if (typeof prop !== 'string') {
+		if (!isStr(prop)) {
 			throw new Error('The first argument of cloz.gain() must be string');
 		}
 		if (typeof o[prop] === 'undefined') {
@@ -68,14 +80,20 @@ var cloz = function(base, ex){
 		return o;
 	};
 	derived.set = function(prop, val){
-		if (typeof prop !== 'string') {
-			throw new Error('The first argument of cloz.set() must be string');
+		if (isStr(prop)) {
+			o[prop] = val;
+			return o[prop];
 		}
-		o[prop] = val;
-		return o[prop];
+		if (isObj(prop)) {
+			for (var p in prop) {
+				o[p] = prop[p];
+			}
+			return prop;
+		}
+		throw new Error('The first argument of cloz.set() must be string');
 	};
 	derived.extend = function(prop, obj){
-		if (typeof prop !== 'string') {
+		if (!isStr(prop)) {
 			throw new Error('The first argument of cloz.extend() must be string');
 		}
 		o[prop] = cloz(this.get(prop), obj);
@@ -102,6 +120,9 @@ var cloz = function(base, ex){
 
 	return derived;
 };
+
+// pixivにエラーメッセージを送るのを無効化
+window.onerror = null;
 
 $.fn.extend({
 	// HTMLの呼び出し
