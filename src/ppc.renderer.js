@@ -15,6 +15,9 @@ ppc.renderer = cloz(base, {
 	update: function(selector, text){
 		$(selector).text(text);
 	},
+	alter: function(selector, html){
+		$(selector).html(html);
+	},
 	remove: function(selector){
 		$(selector).remove();
 	},
@@ -22,6 +25,190 @@ ppc.renderer = cloz(base, {
 		$.each(ppc.parser.home.get('ads'), function(i, selector){
 			$(selector).remove();
 		});
+	},
+	init1: function(){
+		var $leftColumn = ppc.parser.get('jq', 'col_l');
+		var $rightColumn = ppc.parser.get('jq', 'col_r');
+
+		// レイアウト上、邪魔になる要素を削除
+		this.get('removeAds');
+
+		$('<div>', {id:'buttons', class:'right-container'}).prependTo('.layout-column-2');
+		$('a', $leftColumn).attr('target', '_blank');
+		$('.display_editable_works>ul>li>span').wrap('<div class="status" />');
+
+		$rightColumn.wrapInner('<div id="works" />');
+		$rightColumn.wrap('<div id="tab_group" />');
+	},
+	init2: function(){
+		ppc.parser.created.get('jq', 'tab_group').prepend(
+			$('<ul>').prepend(
+				$('<li>').prepend(
+					$('<a>').attr('href', '#works').prepend(
+						$('<span>').text('作品')
+					)
+				)
+			)
+		);
+
+		// タブ生成
+		ppc.parser.created.get('jq', 'tab_group').find('>ul')
+			.appendTab('pixivパワー', '#totalResult')
+			.appendTab('詳細', '#detail')
+			.appendTab('環境設定', '#conf')
+			.appendTab('ログ', '#ppcLog')
+			.appendTab('お知らせ', '#ppc-info')
+			.appendTab('PPCについて', '#ppc-about');
+
+		ppc.parser.created.get('jq', 'tab_group').find('>div')
+			.append($('<div>', {id: 'totalResult', class: 'ppcTab'}))
+			.append($('<div>', {id: 'detail', class: 'ppcTab'}))
+			.append($('<div>', {id: 'conf', class: 'ppcTab'}))
+			.append($('<div>', {id: 'ppcLog', class: 'ppcTab'}))
+			.append($('<div>', {id: 'ppc-info', class: 'ppcTab'}))
+			.append($('<div>', {id: 'ppc-about', class: 'ppcTab'}));
+
+		$('#totalResult')
+			.append(ppc.utility.get('tab', 'pixivパワーの測定結果','',1))
+			.append($('<div>', {
+				id: 'processing',
+				text: '測定中',
+			}))
+			.append($('<div>', {
+				id: 'processing-description',
+				text: '測定中です。何もせずにお待ちください。',
+			}));
+		$('#detail').append(ppc.utility.get('tab', '各作品の詳細','',0));
+		$('#conf').append(ppc.utility.get('tab', '環境設定','',1));
+		$('#ppcLog').append(ppc.utility.get('tab', '測定のログ','',1));
+		$('#ppc-info').append(ppc.utility.get('tab', 'お知らせ','',1)).find('.column-body').appendHtml('promotion', function(){});
+		$('#ppc-about').append(ppc.utility.get('tab', 'PPCについて','',1)).find('.column-body').appendHtml('about', function(){
+			ppc.renderer.get('update', '.ppc-version', ppc.admin.get('version').get('script'));
+		});
+
+		ppc.renderer.get('render').get('at',
+			'#ppcLog .column-body',
+			$('<ul>', {
+				id: 'ppc_log',
+				css: {
+					maxHeight: '500px',
+					overflow: 'scroll',
+				}
+			})
+		);
+
+		ppc.renderer.get('render').get('at',
+			'#conf .column-body',
+			$('<div>', {
+				id: 'configuration',
+			})
+		);
+
+		$('#conf .column-body').appendHtml('ppcranking', function(){});
+
+	},
+	init3: function(){
+
+		// 測定ボタンを生成
+		ppc.parser.template.get('$doc').find('#btn-ppc').appendTo('#buttons');
+
+		// ログインステータスの表示
+		$('#buttons').appendHtml('login_status', function(){
+			if (window.addEventListener) {
+				window.addEventListener('message', function(e){
+					var data = JSON.parse(e.data);
+					if (e.origin === ppc.uri.get('home') || e.origin === ppc.uri.get('home') + '/') {
+						ppc.renderer.get('fillUserStatus', data);
+						ppc.renderer.get('fillRanking');
+					}
+				});
+			}
+			if (ppc.user.get('release') > 0) {
+				ppc.renderer.get('update', '#login_status .join', '参加');
+			}
+			else {
+				ppc.renderer.get('update', '#login_status .join', '不参加（「環境設定」から変更できます）');
+			}
+		});
+
+		// Twitterログインボタンの生成
+		ppc.renderer.get('render').get('at',
+			'#buttons',
+			$('<iframe>', {
+				id: 'login_with_twitter',
+				class: 'button',
+				name: 'login_with_twitter',
+				width: '120',
+				height: '34',
+				src: ppc.uri.get('home') + '/twitter/button',
+			})
+		);
+
+		// Tiwtterアイコン、screen nameの表示
+		ppc.renderer.get('render').get('at', '#buttons', $('<img>', {id:'profile_image'}));
+		ppc.renderer.get('render').get('at', '#buttons', $('<span>', {id:'screen_name', text:'Twitterとの連携でパワーの保存やランキングへの参加ができます'}));
+
+		ppc.renderer.get('render').get('at', '#totalResult .column-body', $ppc_result);
+
+		$('#ppc_result')
+			.prepend($('<div>', {id: 'ppc_bottom'}))
+			.prepend(
+				$('<div>', {id: 'ppc'})
+					.append($('<div>', {class: 'message-start'}))
+					.append($('<div>', {id: 'result', text: 0}))
+					.append($('<div>', {class: 'message-end'}))
+			)
+			.prepend($('<div>', {id: 'ppc_top'}));
+
+		// guest
+		$('<img id="guest" src="' + ppc.uri.get('img') + '/' + ppc.user.get('guest_profile').PpcGuest.illust_id + '.' + ppc.user.get('guest_profile').FileExtension.name + '" width="180" height="180" style="margin:5px;display:none;" />').appendTo($ppc_result);
+
+		$('#guest').wrap('<div id="ppc_left" />');
+		$('<div>', {id: 'ppc_right'}).insertAfter('#ppc_left');
+
+		// 仮想順位
+		$('<div>', {
+			id: 'vranking',
+		}).html('仮想順位： <strong class="order-vranking"></strong> / 10000 前回順位： ' + ppc.cookie.ppc.get('output', 'ranking', 'データ無し')).appendTo('#ppc_right');
+
+		// サマリー
+		ppc.renderer.get('render').get('at', '#ppc_right', ppc.parser.template.get('jq', 'summary'));
+
+		// ツイートボタン
+		$('<div>', {id: 'tweet'}).appendTo('#ppc_right');
+		$('<button>', {id: 'btn-tweet', class: 'ppc-button', html: '<i class="fa fa-twitter"></i>結果をツイート'}).appendTo('#tweet');
+		$('<br><input type="checkbox" id="pidchk"><label for="pidchk">pixivへのリンクを載せる</label>').appendTo('#tweet');
+		$('#pidchk').attr('checked', ppc.cookie.ppc.get('output', 'pidchk', true));
+
+		// ソート切り替えナビゲーション挿入
+		$('<div>', {
+				class: 'extaraNaviAlso edit_work_navi',
+				html: $('<ul>', {
+						html: function(){
+							$('<span>', {id: 'temp'}).appendTo('body');
+							for (var k in ppc.constants.get('sort_keys').getAll()) {
+								$('<li>', {
+									html: $('<a>', {
+										class: 'black_link sort-by sort-by-' + k,
+										href: '#',
+										'data-sort-by': k,
+										html: ppc.constants.get('sort_keys').get(k) + '<i class="fa fa-sort-numeric-desc"></i><i class="fa fa-sort-numeric-asc"></i>',
+									})
+								}).appendTo('#temp');
+							}
+							var result = $('#temp').html();
+							$('#temp').remove();
+							return result;
+						}
+					}
+				)
+			}
+		).appendTo('#detail .column-body');
+
+		$('<ul>', {id: 'sortableList'}).appendTo('#detail .column-body');
+
+	},
+	init4: function(){
 	},
 	fillUserStatus: function(data){
 		try {

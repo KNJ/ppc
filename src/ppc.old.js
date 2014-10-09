@@ -8,7 +8,6 @@ ppc.old = cloz(base, {
 			window.scroll(0,0);
 
 			if ($('#gstchk').prop('checked')) {
-				$('<img id="guest" src="' + ppc.uri.get('img') + '/' + ppc.user.get('guest_profile').PpcGuest.illust_id + '.' + ppc.user.get('guest_profile').FileExtension.name + '" width="180" height="180" style="margin:5px;display:none;" />').appendTo($ppc_result);
 				if (ppc.user.get('guest_profile').PpcGuest.illust_id) {
 					$('#guest', $ppc_result).wrap('<a href="http://www.pixiv.net/member_illust.php?mode=medium&illust_id=' + ppc.user.get('guest_profile').PpcGuest.illust_id + '" target="_blank"></a>');
 				}
@@ -18,7 +17,6 @@ ppc.old = cloz(base, {
 			}
 			else {
 				ppc.user.set('guest', false);
-				$('<div>').attr({id:'guest', width:'180px'}).appendTo($ppc_result);
 				$('#guest', $ppc_result).wrap('<span>');
 				index = 0;
 			}
@@ -40,35 +38,6 @@ ppc.old = cloz(base, {
 			ppc.parser.created.get('jq', 'tab_group').tabs({
 				disabled: false,
 			});
-
-			ppc.renderer.get('render').get('at', '#totalResult .column-body', $ppc_result);
-			$('#guest').parent().wrap('<div id="ppc_left" />');
-			$('<div>', {id: 'ppc_right'}).insertAfter('#ppc_left');
-
-			// ソート切り替えナビゲーション挿入
-			$('<div>', {
-					class: 'extaraNaviAlso edit_work_navi',
-					html: $('<ul>', {
-							html: function(){
-								$('<span>', {id: 'temp'}).appendTo('body');
-								for (var k in ppc.constants.get('sort_keys').getAll()) {
-									$('<li>', {
-										html: $('<a>', {
-											class: 'black_link sort-by sort-by-' + k,
-											href: '#',
-											'data-sort-by': k,
-											html: ppc.constants.get('sort_keys').get(k) + '<i class="fa fa-sort-numeric-desc"></i><i class="fa fa-sort-numeric-asc"></i>',
-										})
-									}).appendTo('#temp');
-								}
-								var result = $('#temp').html();
-								$('#temp').remove();
-								return result;
-							}
-						}
-					)
-				}
-			).appendTo('#detail .column-body');
 
 			$('.sort-by').on('click', function(){
 				var self = $(this);
@@ -93,13 +62,11 @@ ppc.old = cloz(base, {
 				return false;
 			});
 
-			$('<ul>', {id: 'sortableList'}).appendTo('#detail .column-body');
-
 			$('.sort-by.sort-by-id').addClass('desc').addClass('active').find('.fa-sort-numeric-desc').css('display', 'inline');
 			ppc.old.get('arrange', ppc.constants.get('sort_keys').get('id'), ppc.illusts, 'desc');
 
 			var message_start = ppc.user.get('guest_profile').PpcMessage.start,
-			message_end = ppc.user.get('guest_profile').PpcMessage.end;
+				message_end = ppc.user.get('guest_profile').PpcMessage.end;
 
 			if (!message_start || !ppc.user.get('guest')) {
 				message_start = 'あなたのpixivパワーは';
@@ -108,17 +75,15 @@ ppc.old = cloz(base, {
 				message_end = 'です！';
 			}
 
-			$('#ppc_result')
-			.prepend($('<div>', {id: 'ppc_bottom'}))
-			.prepend(
-				$('<div>', {id: 'ppc'})
-				.append($('<div>', {class: 'message-start', html: message_start}))
-				.append($('<div>', {id: 'result', text: 0}))
-				.append($('<div>', {class: 'message-end', html: message_end}))
-			)
-			.prepend($('<div>', {id: 'ppc_top'}));
+			// ゲストのメッセージを埋め込む
+			ppc.renderer.get('alter', '.message-start', message_start);
+			ppc.renderer.get('alter', '.message-end', message_end);
 
-			$('#guest').show();
+			if (ppc.user.get('guest')) {
+				$('#guest').show();
+			}
+
+			$('#ppc_result').show();
 
 			this.get('_step1');
 
@@ -298,7 +263,7 @@ ppc.old = cloz(base, {
 
 				// 仮想順位の表示
 				if(ppc.cookie.ppc.get('output', 'rnkchk', false)){
-					$('<div>').css({display: 'none'}).fadeIn().html('仮想順位： <strong>' + vranking +'</strong> / 10000 前回順位： ' + ppc.cookie.ppc.get('output', 'ranking', 'データ無し')).appendTo('#ppc_right');
+					ppc.renderer.get('update', '.order-vranking', vranking);
 					ppc.cookie.ppc.get('input', 'ranking', vranking);
 					ppc.cookie.ppc.get('write');
 				}
@@ -306,7 +271,6 @@ ppc.old = cloz(base, {
 				$('<br>').appendTo('#ppc_result');
 
 				// サマリーの表示
-				ppc.renderer.get('render').get('at', '#ppc_right', ppc.parser.template.get('jq', 'summary'));
 				$('#summary')
 					.find('.illusts').text(ppc.user.get('illusts')).end()
 					.find('.rate')
@@ -338,7 +302,7 @@ ppc.old = cloz(base, {
 
 				// パワー標準偏差、HOT標準偏差
 				var sd_power = ppc.math.get('standardDeviation', illusts, 'power', total_power),
-				sd_hot = ppc.math.get('standardDeviation', illusts, 'hot', ppc.user.get('hot_sum'));
+					sd_hot = ppc.math.get('standardDeviation', illusts, 'hot', ppc.user.get('hot_sum'));
 
 				$.each(illusts, function(i, v){
 					var data = {};
@@ -357,6 +321,8 @@ ppc.old = cloz(base, {
 					$('.display_editable_works>ul>li').eq(i).find('.bookmark-count:first').html('<i class="_icon sprites-bookmark-badge"></i>' + v.get('bookmarked_total') + ' (' + v.get('bookmarked_public') + ' + ' + v.get('bookmarked_private') + ')');
 
 				});
+
+				$('#ppc_right').show();
 
 			}
 			catch (e) {
@@ -378,14 +344,11 @@ ppc.old = cloz(base, {
 				var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+"://platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
 			}(document,'script','twitter-wjs');
 
+			// ツイートボタンにリンクを貼る
 			var tweet1 = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(nickname + 'のpixivパワーは【' + pixiv_power.comma() + '】です。') + '&hashtags=' + encodeURIComponent('pixivパワーチェッカー') + '&url=http://www.pixiv.net/member.php?id=' + user_id;
 			var tweet2 = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent('私のpixivパワーは【' + pixiv_power.comma() + '】です。') + '&hashtags=' + encodeURIComponent('pixivパワーチェッカー');
 
-			$('<div>', {id: 'tweet'}).appendTo('#ppc_right');
-			$('<button>', {id: 'btn-tweet', class: 'ppc-button', html: '<i class="fa fa-twitter"></i>結果をツイート'}).appendTo('#tweet');
 			$('#btn-tweet').wrap($('<a/>', {class: 'wrapper-btn-tweet'}).attr('href', tweet1).attr('target', '_blank'));
-			$('<br><input type="checkbox" id="pidchk"><label for="pidchk">pixivへのリンクを載せる</label>').appendTo('#tweet');
-			$('#pidchk').attr('checked', ppc.cookie.ppc.get('output', 'pidchk', true));
 
 			if (!($('#pidchk').prop('checked'))){
 				$('#tweet a').attr('href', tweet2);

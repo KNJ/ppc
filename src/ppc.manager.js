@@ -163,9 +163,9 @@ ppc.manager = cloz(base, {
 
 				// 評価回数・総合点・コメント数・閲覧数
 				var rated = ppc.parser.home.get('illust_figures', j, 'rating-count'),
-				scored = ppc.parser.home.get('illust_figures', j, 'score'),
-				commented = ppc.parser.home.get('illust_figures', j, 'comments'),
-				viewed = ppc.parser.home.get('illust_figures', j, 'views');
+					scored = ppc.parser.home.get('illust_figures', j, 'score'),
+					commented = ppc.parser.home.get('illust_figures', j, 'comments'),
+					viewed = ppc.parser.home.get('illust_figures', j, 'views');
 
 				illust.set('rated', rated);
 				illust.set('scored', scored);
@@ -177,20 +177,22 @@ ppc.manager = cloz(base, {
 
 				// 投稿日時
 				var timestamp = parser.get('text', 'datetime'),
-				timestamp_a = timestamp.number(null),
-				datetime = new Date(timestamp_a[0], timestamp_a[1] - 1, timestamp_a[2], timestamp_a[3], timestamp_a[4], timestamp_a[5], 0),
-				timestamp_b = timestamp.split(' '),
-				date = timestamp_b[0],
-				time = timestamp_b[1],
-				milliseconds = datetime.getTime(),
-				interval = ppc.user.get('now') - milliseconds;
+					timestamp_a = timestamp.number(null),
+					datetime = new Date(timestamp_a[0], timestamp_a[1] - 1, timestamp_a[2], timestamp_a[3], timestamp_a[4], timestamp_a[5], 0),
+					timestamp_b = timestamp.split(' '),
+					date = timestamp_b[0],
+					time = timestamp_b[1],
+					milliseconds = datetime.getTime(),
+					interval = ppc.user.get('now') - milliseconds;
 
-				illust.set('timestamp', timestamp);
-				illust.set('date', date);
-				illust.set('time', time);
-				illust.set('milliseconds', milliseconds);
-				illust.set('interval', interval); // ミリ秒単位の経過時間
-				illust.set('interval_days', interval / (1000 * 60 * 60 * 24)); // 日単位の経過時間
+				illust.set({
+					timestamp: timestamp,
+					date: date,
+					time: time,
+					milliseconds: milliseconds,
+					interval: interval, // ミリ秒単位の経過時間
+					interval_days: interval / (1000 * 60 * 60 * 24), // 日単位の経過時間
+				});
 
 				// HOT
 				var hot = ppc.math.get('div', viewed, interval / (1000 * 60 * 60 * 24));
@@ -208,8 +210,11 @@ ppc.manager = cloz(base, {
 				// タグ数
 				tags_num_total = parser.get('length', 'tags_num_total');
 				tags_num_self = parser.get('length', 'tags_num_self');
-				illust.set('tags_num_total', tags_num_total);
-				illust.set('tags_num_self', tags_num_self);
+
+				illust.set({
+					tags_num_total: tags_num_total,
+					tags_num_self: tags_num_self,
+				});
 
 				// 最新ブックマーク
 				$bookmarked_latest = parser.get('jq', 'bookmarked_latest');
@@ -219,12 +224,14 @@ ppc.manager = cloz(base, {
 
 			// ユーザーID(数字)・ニックネーム・投稿数
 			var user_id = ppc.parser.home.get('attr', 'user_id', 'href').number(0),
-			user_name = ppc.parser.illust.illusts[0].get('text', 'user_name'),
-			posted = ppc.parser.home.get('text', 'posted').number(0);
+				user_name = ppc.parser.illust.illusts[0].get('text', 'user_name'),
+				posted = ppc.parser.home.get('text', 'posted').number(0);
 
-			ppc.user.set('id', user_id);
-			ppc.user.set('nickname', user_name);
-			ppc.user.set('posted', posted);
+			ppc.user.set({
+				id: user_id,
+				nickname: user_name,
+				posted: posted,
+			});
 
 			// フォロワー数・マイピク数取得
 			ppc.ajax.follower.get('load');
@@ -242,36 +249,40 @@ ppc.manager = cloz(base, {
 
 		// 各パラメータ合計
 		var rated_sum = ppc.math.get('sum', ppc.illusts, 'rated'),
-		scored_sum = ppc.math.get('sum', ppc.illusts, 'scored'),
-		commented_sum = ppc.math.get('sum', ppc.illusts, 'commented'),
-		viewed_sum = ppc.math.get('sum', ppc.illusts, 'viewed'),
-		bookmarked_sum = ppc.math.get('sum', ppc.illusts, 'bookmarked_total'),
-		bookmarked_public_sum = ppc.math.get('sum', ppc.illusts, 'bookmarked_public'),
-		hot_sum = ppc.math.get('sum', ppc.illusts, 'hot');
+			scored_sum = ppc.math.get('sum', ppc.illusts, 'scored'),
+			commented_sum = ppc.math.get('sum', ppc.illusts, 'commented'),
+			viewed_sum = ppc.math.get('sum', ppc.illusts, 'viewed'),
+			bookmarked_sum = ppc.math.get('sum', ppc.illusts, 'bookmarked_total'),
+			bookmarked_public_sum = ppc.math.get('sum', ppc.illusts, 'bookmarked_public'),
+			hot_sum = ppc.math.get('sum', ppc.illusts, 'hot');
 
-		ppc.user.set('rated_sum', rated_sum);
-		ppc.user.set('scored_sum', scored_sum);
-		ppc.user.set('commented_sum', commented_sum);
-		ppc.user.set('viewed_sum', viewed_sum);
-		ppc.user.set('bookmarked_sum', bookmarked_sum);
-		ppc.user.set('bookmarked_public_sum', bookmarked_public_sum);
-		ppc.user.set('hot_sum', hot_sum | 0);
+		ppc.user.set({
+			rated_sum: rated_sum,
+			scored_sum: scored_sum,
+			commented_sum: commented_sum,
+			viewed_sum: viewed_sum,
+			bookmarked_sum: bookmarked_sum,
+			bookmarked_public_sum: bookmarked_public_sum,
+			hot_sum: hot_sum | 0,
+		});
 
 		try {
 			var now = ppc.user.get('now'),
-			illusts = ppc.user.get('illusts'),
-			followers = ppc.user.get('followers'),
-			my_pixiv = ppc.user.get('my_pixiv'),
-			total_power = 0,
-			pixiv_power = 0;
+				illusts = ppc.user.get('illusts'),
+				followers = ppc.user.get('followers'),
+				my_pixiv = ppc.user.get('my_pixiv'),
+				total_power = 0,
+				pixiv_power = 0;
 
 			var index_last = illusts - 1,
 			interval_longest = (now - ppc.illusts[index_last].get('milliseconds')) / (1000 * 60 * 60 * 24);
 
 			var interval_average = interval_longest / illusts;
 
-			ppc.user.set('interval_longest', interval_longest);
-			ppc.user.set('interval_average', interval_average.toFixed(1));
+			ppc.user.set({
+				interval_longest: interval_longest,
+				interval_average: interval_average.toFixed(1),
+			});
 
 			for (var i = 0; i < illusts; i++) {
 				var illust = ppc.illusts[i],
@@ -298,8 +309,10 @@ ppc.manager = cloz(base, {
 					total_power += power;
 				}
 
-				illust.set('freshment', freshment);
-				illust.set('power', power);
+				illust.set({
+					freshment: freshment,
+					power: power,
+				});
 
 				// Elements
 				var elements = [
@@ -317,8 +330,10 @@ ppc.manager = cloz(base, {
 			}
 
 			pixiv_power = ppc.math.get('pixivPower', followers, my_pixiv, total_power, hot_sum);
-			ppc.user.set('total_power', Math.ceil(total_power));
-			ppc.user.set('pixiv_power', Math.ceil(pixiv_power));
+			ppc.user.set({
+				total_power: Math.ceil(total_power),
+				pixiv_power: Math.ceil(pixiv_power),
+			});
 
 		}
 		catch (e) {
