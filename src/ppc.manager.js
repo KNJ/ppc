@@ -223,12 +223,10 @@ ppc.manager = cloz(base, {
 			}
 
 			// ユーザーID(数字)・ニックネーム・投稿数
-			var user_id = ppc.parser.home.get('attr', 'user_id', 'href').number(0),
-				user_name = ppc.parser.illust.illusts[0].get('text', 'user_name'),
+			var user_name = ppc.parser.illust.illusts[0].get('text', 'user_name'),
 				posted = ppc.parser.home.get('text', 'posted').number(0);
 
 			ppc.user.set({
-				id: user_id,
 				nickname: user_name,
 				posted: posted,
 			});

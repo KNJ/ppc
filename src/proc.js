@@ -61,6 +61,11 @@ ppc.illusts = [];
 ]);
 
 // 主な処理はここから開始
+
+// ユーザーIDの取得
+var user_id = ppc.parser.home.get('attr', 'user_id', 'href').number(0);
+ppc.user.set('id', user_id);
+
 var $leftColumn = ppc.parser.get('jq', 'col_l');
 var $rightColumn = ppc.parser.get('jq', 'col_r');
 
@@ -184,6 +189,9 @@ ppc.parser.created.get('jq', 'tab_group').fadeOut('slow',function(){
 				ppc.parser.template.set('$doc', $html);
 
 				ppc.renderer.get('init3');
+
+				// フォーム部品をすべて置いたのでsenbeiを発動させる
+				ppc.renderer.get('senbei');
 
 				// 2ページ目があるかどうか確認
 				// 確認後、開始ボタンを利用可にする
