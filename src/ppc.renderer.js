@@ -169,7 +169,7 @@ ppc.renderer = cloz(base, {
 		// 仮想順位
 		$('<div>', {
 			id: 'vranking',
-		}).html('仮想順位： <strong class="order-vranking"></strong> / 10000 前回順位： ' + ppc.cookie.ppc.get('output', 'ranking', 'データ無し')).appendTo('#ppc_right');
+		}).html('仮想順位： <strong class="order-vranking">???</strong> / 10000 前回順位： ' + ppc.cookie.ppc.get('output', 'ranking', 'データ無し')).appendTo('#ppc_right');
 
 		// サマリー
 		ppc.renderer.get('render').get('at', '#ppc_right', ppc.parser.template.get('jq', 'summary'));
@@ -231,17 +231,17 @@ ppc.renderer = cloz(base, {
 				var t = window.setInterval(function(){
 					if ($('#ppcranking').length == 1) {
 						clearInterval(t);
-						$('#ppcranking').attr('checked', true);
-						if ($('#ppcranking').attr('checked')) { $('#login_status .join').text('参加'); }
-						if (data.release == 1) {$('#release1').attr('checked', true);}
-						else if (data.release == 2) {$('#release2').attr('checked', true);}
-						else if (data.release == 3) {$('#release3').attr('checked', true);}
+						$('#ppcranking').prop('checked', true);
+						if ($('#ppcranking').prop('checked')) { $('#login_status .join').text('参加'); }
+						if (data.release == 1) { $('#release1').prop('checked', true); }
+						else if (data.release == 2) { $('#release2').prop('checked', true); }
+						else if (data.release == 3) { $('#release3').prop('checked', true); }
 					}
 				}, 200);
 			}
 			else {
-				$('#ppcranking').attr('checked', false);
-				if (!$('#ppcranking').attr('checked')) { $('#login_status .join').text('不参加（環境設定から変更できます）'); }
+				$('#ppcranking').prop('checked', false);
+				if (!$('#ppcranking').prop('checked')) { $('#login_status .join').text('不参加（環境設定から変更できます）'); }
 			}
 		}
 		catch (e) {
