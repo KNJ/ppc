@@ -187,7 +187,7 @@ senbei = function(configuration, conditions){
 		var w = $.extend({
 			name: 'f' + i,
 			base: null, // jQuery object
-			conditions: function(){ return null; },
+			condition: function(){ return null; },
 			t: function(){ return null; },
 			f: function(){ return null; },
 			n: function(){ return null; },
