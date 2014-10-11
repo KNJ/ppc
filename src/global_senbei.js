@@ -32,8 +32,8 @@ senbei = function(configuration, conditions){
 			// 配列で複数指定した場合、
 			// 読みでは、先に指定した媒体が優先され、空の場合は次に指定したものが読まれる
 			// 書きでは、指定した媒体すべてに書き込む
-			read: null, // 読み込み（useより優先）
-			write: null, // 書き込み (useより優先)
+			read: null, // 読み込み
+			write: null, // 書き込み
 			cookie: {
 				expires: exp,
 				domain: null,
@@ -103,6 +103,11 @@ senbei = function(configuration, conditions){
 			if (v.type === 'radio' || v.type === 'checkbox') {
 
 				var values = forceArray(v.value);
+
+				// 一度チェックをすべて解除
+				// これにより属性値のcheckedを解除する
+				// 初訪問の場合は属性値のcheckedが適用されるが、一度でも変更を加えた場合はそれが無視される
+				$(target).prop('checked', false);
 
 				$.each(values, function(j, w){
 					var spec =  target + '[value="' + w + '"]';
