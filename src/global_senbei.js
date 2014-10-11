@@ -32,7 +32,6 @@ senbei = function(configuration, conditions){
 			// 配列で複数指定した場合、
 			// 読みでは、先に指定した媒体が優先され、空の場合は次に指定したものが読まれる
 			// 書きでは、指定した媒体すべてに書き込む
-			use: ['localStorage'],// 読み書き媒体
 			read: null, // 読み込み（useより優先）
 			write: null, // 書き込み (useより優先)
 			cookie: {
@@ -68,11 +67,6 @@ senbei = function(configuration, conditions){
 	// ----- start reading -----
 
 	var read = forceArray(o.conf.read), storage = null;
-
-	// readが[null]（初期値）の場合
-	if (read[0] === null && read.length === 1) {
-		read = forceArray(o.conf.use);
-	}
 
 	$.each(read, function(i, v){
 
@@ -153,11 +147,6 @@ senbei = function(configuration, conditions){
 
 		var write = forceArray(o.conf.write);
 
-		// writeが[null]（初期値）の場合
-		if (write[0] === null && write.length === 1) {
-			write = forceArray(o.conf.use);
-		}
-
 		storage[name] = {
 			control: $self.tag(),
 			type: $self.type(),
@@ -195,7 +184,7 @@ senbei = function(configuration, conditions){
 		}, v);
 
 		o[w.name] = function() {
-			var bool = w.conditions(w.base);
+			var bool = w.condition(w.base);
 			if (bool) {
 				w.t(w.base);
 			}
