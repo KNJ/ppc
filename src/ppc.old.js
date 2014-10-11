@@ -85,7 +85,15 @@ ppc.old = cloz(base, {
 
 			$('#ppc_result').show();
 
-			this.get('_step1');
+			this.get('_step1').then(function(){
+				return ppc.old.get('_wait1');
+			}).then(function(){
+				return ppc.old.get('_step2');
+			}).then(function(){
+				return ppc.old.get('_wait2');
+			}).then(function(){
+				ppc.logger.get('add', 'すべての処理が完了しました', 0);
+			});
 
 		}
 		catch (e) {
@@ -95,6 +103,7 @@ ppc.old = cloz(base, {
 		return true;
 	},
 	_step1: function(){
+		var d = new $.Deferred();
 		var total_power = ppc.user.get('total_power'),
 			piece = Math.round(total_power / 100),
 			$result = ppc.parser.created.get('jq', 'result'),
@@ -105,7 +114,7 @@ ppc.old = cloz(base, {
 		// 例外：パワーが0の場合
 		if (total_power === 0) {
 			self.get('_wait1');
-			return true;
+			return d.promise();
 		}
 
 		var timer = window.setInterval(function(){
@@ -114,14 +123,15 @@ ppc.old = cloz(base, {
 				n = total_power;
 				$result.text(n.comma());
 				clearInterval(timer);
-				self.get('_wait1');
+				d.resolve();
 			}
 			$result.text(n.comma());
 		}, 30);
-		return true;
+
+		return d.promise();
 	},
 	_wait1: function(){
-		var self = this;
+		var d = new $.Deferred();
 		window.setTimeout(function(){
 			$('#ppc_left')
 			.append(
@@ -143,22 +153,26 @@ ppc.old = cloz(base, {
 				})
 			)
 			.find('.bonus').fadeIn();
-			self.get('_step2');
+			d.resolve();
 		}, 1500);
+
+		return d.promise();
 	},
 	_step2: function(){
+		var d = new $.Deferred();
 		var total_power = ppc.user.get('total_power'),
 			pixiv_power = ppc.user.get('pixiv_power'),
 			piece = Math.round((pixiv_power - total_power) / 20),
 			$result = ppc.parser.created.get('jq', 'result'),
-			n = total_power,
-			self = this;
+			n = total_power;
+
 		$result.css('color', '#f99');
 
 		// 例外：パワーが0の場合
 		if (pixiv_power === 0) {
-			self.get('_wait2');
-			return true;
+			d.resolve();
+
+			return d.promise();
 		}
 
 		var timer = window.setInterval(function(){
@@ -167,13 +181,15 @@ ppc.old = cloz(base, {
 				n = pixiv_power;
 				$result.css('color', 'red').text(n.comma());
 				clearInterval(timer);
-				self.get('_wait2');
+				d.resolve();
 			}
 			$result.text(n.comma());
 		}, 30);
-		return true;
+
+		return d.promise();
 	},
 	_wait2: function(){
+		var d = new $.Deferred();
 		var user_id = ppc.user.get('id'),
 		nickname = ppc.user.get('nickname'),
 		pixiv_power = ppc.user.get('pixiv_power'),
@@ -243,19 +259,19 @@ ppc.old = cloz(base, {
 				}
 
 				$('#ppc_left')
-				.append(
-					$('<div>', {
-						class: 'summary-interval-average',
-						text: '平均投稿間隔： ' + ppc.user.get('interval_average') + '日',
-					})
-				)
-				.append(
-					$('<div>', {
-						class: 'summary-rank',
-						html: 'ランク: <span class="rank">' + rank +'</span>',
-					})
-				)
-				.find('.summary-interval-average, .summary-rank').fadeIn();
+					.append(
+						$('<div>', {
+							class: 'summary-interval-average',
+							text: '平均投稿間隔： ' + ppc.user.get('interval_average') + '日',
+						})
+					)
+					.append(
+						$('<div>', {
+							class: 'summary-rank',
+							html: 'ランク: <span class="rank">' + rank +'</span>',
+						})
+					)
+					.find('.summary-interval-average, .summary-rank').fadeIn();
 
 				$('<div>').fadeIn().html('pixivパワー: <span>' + pixiv_power.comma() +'</span>').insertBefore('#ppc_left>div:first');
 				$('<div>').fadeIn().html('測定対象数: <span>' + ppc.user.get('illusts') +'</span>').insertBefore('#ppc_left>div:first');
@@ -390,10 +406,11 @@ ppc.old = cloz(base, {
 			// リンクを新しいタブで開くようにする
 			ppc.renderer.get('addNewTabLink', ppc.parser.home.get('jq', 'contents'));
 			$('a[href^="javascript"], a[href="#"]').attr('target', '');
+			d.resolve();
 
 		}, 1500);
 
-		ppc.logger.get('add', 'すべての処理が完了しました', 0);
+		return d.promise();
 
 	},
 	_save: function(){
