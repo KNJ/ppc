@@ -122,22 +122,33 @@ ppc.old = cloz(base, {
 			return d.promise();
 		}
 
-		var timer = window.setInterval(function(){
-			n += piece;
-			if (n > total_power) {
-				n = total_power;
+		if (ppc.user.get('animation')) {
+			var timer = window.setInterval(function(){
+				n += piece;
+				if (n > total_power) {
+					n = total_power;
+					$result.text(n.comma());
+					clearInterval(timer);
+					d.resolve();
+				}
 				$result.text(n.comma());
-				clearInterval(timer);
-				d.resolve();
-			}
-			$result.text(n.comma());
-		}, 30);
+			}, 30);
+		}
+		else {
+			$result.text(total_power.comma());
+			d.resolve();
+		}
 
 		return d.promise();
 	},
 	_wait1: function(){
+
 		var d = new $.Deferred();
+
+		var timeout = ppc.user.get('animation') ? 1500 : 0;
+
 		window.setTimeout(function(){
+
 			$('#ppc_left')
 				.append(
 					$('<div>', {
@@ -159,7 +170,8 @@ ppc.old = cloz(base, {
 				)
 				.find('.bonus').fadeIn();
 			d.resolve();
-		}, 1500);
+
+		}, timeout);
 
 		return d.promise();
 	},
@@ -180,21 +192,31 @@ ppc.old = cloz(base, {
 			return d.promise();
 		}
 
-		var timer = window.setInterval(function(){
-			n += piece;
-			if (n > pixiv_power) {
-				n = pixiv_power;
-				$result.css('color', 'red').text(n.comma());
-				clearInterval(timer);
-				d.resolve();
-			}
-			$result.text(n.comma());
-		}, 30);
+		if (ppc.user.get('animation')) {
+			var timer = window.setInterval(function(){
+				n += piece;
+				if (n > pixiv_power) {
+					n = pixiv_power;
+					$result.css('color', 'red').text(n.comma());
+					clearInterval(timer);
+					d.resolve();
+				}
+				$result.text(n.comma());
+			}, 30);
+		}
+		else {
+			$result.css('color', 'red').text(pixiv_power.comma());
+			d.resolve();
+		}
 
 		return d.promise();
 	},
 	_wait2: function(){
+
 		var d = new $.Deferred();
+
+		var timeout = ppc.user.get('animation') ? 1500 : 0;
+
 		var user_id = ppc.user.get('id'),
 		nickname = ppc.user.get('nickname'),
 		pixiv_power = ppc.user.get('pixiv_power'),
@@ -413,7 +435,7 @@ ppc.old = cloz(base, {
 			$('a[href^="javascript"], a[href="#"]').attr('target', '');
 			d.resolve();
 
-		}, 1500);
+		}, timeout);
 
 		return d.promise();
 
