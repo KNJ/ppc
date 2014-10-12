@@ -106,7 +106,6 @@ ppc.parser.created.get('jq', 'tab_group').fadeOut('slow',function(){
 
 					// タブ表示
 					ppc.parser.created.get('jq', 'tab_group').tabs({
-						selected: 5,
 						disabled: [1,2],
 						show: {
 							effect: 'fadeIn',
@@ -116,7 +115,7 @@ ppc.parser.created.get('jq', 'tab_group').fadeOut('slow',function(){
 							effect: 'fadeOut',
 							duration: 200,
 						}
-					}).fadeIn('slow');
+					}).tabs('option', 'active', 5).fadeIn('slow');
 
 					clearInterval(timer0);
 					ppc.logger.get('add', 'jQuery UIを読み込みました', 0);
