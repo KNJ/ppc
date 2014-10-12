@@ -23,7 +23,7 @@ ppc.ajax = cloz(base, {
 			},
 			success: function(data){
 				ppc.logger.get('add', 'レスポンスを受信しました <- ' + url, 0);
-				self.get('_afterFilter', data, index);
+				return self.get('_afterFilter', data, index);
 			},
 			error: function(){
 				ppc.logger.get('add', 'レスポンスを受信できませんでした - ' + url, 3);
@@ -153,26 +153,22 @@ ppc.ajax.illust = cloz(ppc.ajax, {
 ppc.ajax.follower = cloz(ppc.ajax, {
 	url: 'http://www.pixiv.net/bookmark.php?type=reg_user',
 	_afterFilter: function(html){
+		var d = new $.Deferred();
 		try {
 			ppc.parser.follower.set('$doc', $(html));
 			var followers = ppc.parser.follower.get('text', 'followers'),
-			my_pixiv = ppc.parser.follower.get('text', 'my_pixiv');
+			my_pixiv = ppc.parser.follower.get('text', 'my_pixiv') || '0';
 
-			if (!my_pixiv) {
-				my_pixiv = '0';
-			}
 			ppc.user.set('followers', followers.number(0));
 			ppc.user.set('my_pixiv', my_pixiv.number(0));
+			d.resolve();
 		}
 		catch (e) {
 			ppc.logger.get('error', e);
 			return false;
 		}
 
-		// 完了をManagerに伝え、計算に入る
-		ppc.manager.get('calc');
-
-		return true;
+		return d.promise();
 	},
 });
 

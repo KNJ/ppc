@@ -231,8 +231,7 @@ ppc.manager = cloz(base, {
 				posted: posted,
 			});
 
-			// フォロワー数・マイピク数取得
-			ppc.ajax.follower.get('load');
+			this.get('_calc');
 
 		}
 		catch (e){
@@ -242,7 +241,7 @@ ppc.manager = cloz(base, {
 
 		ppc.logger.get('add', 'データ処理を完了しました', 0);
 	},
-	calc: function(){
+	_calc: function(){
 		ppc.logger.get('add', '計算を開始しました');
 
 		// 各パラメータ合計

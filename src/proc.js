@@ -136,12 +136,13 @@ ppc.parser.created.get('jq', 'tab_group').fadeOut('slow',function(){
 	// 並行処理
 	$.when(
 		verifyJQueryUI(), // 処理1
-		$.getJSON(ppc.uri.get('guest') + '?callback=?', function(data){ // 処理2
+		ppc.ajax.follower.get('load'), // 処理2
+		$.getJSON(ppc.uri.get('guest') + '?callback=?', function(data){ // 処理3
 			var guest_profile = new Object(data);
 			ppc.user.set('guest_profile', guest_profile);
 		})
 	)
-	// 上の2つの処理が終わったら実行
+	// 上の3つの処理が終わったら実行
 	.then(function(){
 		try {
 			// テンプレートをダウンロード
