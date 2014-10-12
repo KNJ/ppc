@@ -7,7 +7,7 @@ ppc.old = cloz(base, {
 			$('#btn-ppc').addClass('disabled').text('測定しています').off();
 			window.scroll(0,0);
 
-			if ($('#gstchk').prop('checked')) {
+			if (ppc.user.get('guest')) {
 				if (ppc.user.get('guest_profile').PpcGuest.illust_id) {
 					$('#guest', $ppc_result).wrap('<a href="http://www.pixiv.net/member_illust.php?mode=medium&illust_id=' + ppc.user.get('guest_profile').PpcGuest.illust_id + '" target="_blank"></a>');
 				}
@@ -305,7 +305,7 @@ ppc.old = cloz(base, {
 				$('<div>').fadeIn().html('投稿数: <span>' + ppc.user.get('posted') +'</span>').insertBefore('#ppc_left>div:first');
 
 				// 仮想順位の表示
-				if (ppc.cookie.ppc.get('output', 'rnkchk', false)){
+				if (ppc.user.get('vranking')){
 					ppc.renderer.get('update', '.order-vranking', vranking);
 					ppc.cookie.ppc.get('input', 'ranking', vranking);
 					ppc.cookie.ppc.get('write');
