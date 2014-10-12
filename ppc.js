@@ -20,9 +20,21 @@ var cloz = function(base, ex){
 	base = base || {};
 	var derived = {};
 	var o = Object.create(base);
+	var isStr = function(prop){
+		if (Object.prototype.toString.call(prop) === '[object String]') {
+			return true;
+		}
+		return false;
+	};
+	var isObj = function(prop){
+		if (Object.prototype.toString.call(prop) === '[object Object]') {
+			return true;
+		}
+		return false;
+	};
 
 	derived.get = function(prop){
-		if (typeof prop !== 'string') {
+		if (!isStr(prop)) {
 			throw new Error('The first argument of cloz.get() must be string.');
 		}
 		if (typeof o[prop] === 'undefined') {
@@ -45,7 +57,7 @@ var cloz = function(base, ex){
 		}
 	};
 	derived.gain = function(prop, val){
-		if (typeof prop !== 'string') {
+		if (!isStr(prop)) {
 			throw new Error('The first argument of cloz.gain() must be string');
 		}
 		if (typeof o[prop] === 'undefined') {
@@ -72,14 +84,20 @@ var cloz = function(base, ex){
 		return o;
 	};
 	derived.set = function(prop, val){
-		if (typeof prop !== 'string') {
-			throw new Error('The first argument of cloz.set() must be string');
+		if (isStr(prop)) {
+			o[prop] = val;
+			return o[prop];
 		}
-		o[prop] = val;
-		return o[prop];
+		if (isObj(prop)) {
+			for (var p in prop) {
+				o[p] = prop[p];
+			}
+			return prop;
+		}
+		throw new Error('The first argument of cloz.set() must be string');
 	};
 	derived.extend = function(prop, obj){
-		if (typeof prop !== 'string') {
+		if (!isStr(prop)) {
 			throw new Error('The first argument of cloz.extend() must be string');
 		}
 		o[prop] = cloz(this.get(prop), obj);
@@ -107,6 +125,9 @@ var cloz = function(base, ex){
 	return derived;
 };
 
+// pixivにエラーメッセージを送るのを無効化
+window.onerror = null;
+
 $.fn.extend({
 	// HTMLの呼び出し
 	appendHtml: function(page, func){
@@ -125,19 +146,304 @@ var ppc = ppc || {};
 var base = {};
 var $ppc_result = $('<div>').attr('id', 'ppc_result');
 
+// 方針
+// input、select、およびtextareaでそれぞれ処理を分岐する
+// inputはtypeによってさらに細かく処理を分岐する
+
+var senbei;
+
+(function($){
+
+$.fn.extend({
+	tag: function(){
+		return this.get()[0].localName;
+	},
+	type: function(){
+		return this.get()[0].type;
+	},
+});
+
+senbei = function(configuration, conditions){
+
+	conditions = conditions || [];
+
+	// クッキーのデフォルト有効期限（1ヶ月）
+	var exp = new Date();
+	exp.setMonth(exp.getMonth() + 1);
+	exp.toGMTString();
+
+	// senbeiの核となるオブジェクト
+	var o = {
+		conf: {
+			name: 'senbei',
+			// 読み書き媒体（文字列または配列〉
+			// 配列で複数指定した場合、
+			// 読みでは、先に指定した媒体が優先され、空の場合は次に指定したものが読まれる
+			// 書きでは、指定した媒体すべてに書き込む
+			read: null, // 読み込み
+			write: null, // 書き込み
+			cookie: {
+				expires: exp,
+				domain: null,
+				path: null,
+				secure: false,
+			},
+		},
+	};
+
+	// ユーザ設定で上書き
+	$.extend(true, o.conf, configuration);
+
+	// API（これから増やしていく？）
+	// ストレージを抹消するAPI
+	o.remove = function(storage){
+		var exp = new Date();
+		if (String(storage).toLowerCase() === 'localstorage') {
+			localStorage.removeItem(o.conf.name);
+		}
+		else if (String(storage).toLowerCase() === 'cookie') {
+			exp.setTime(0);
+			writeCookie(o.conf.name, {}, {expires:exp});
+		}
+		else {
+			localStorage.removeItem(o.conf.name);
+			exp.setTime(0);
+			writeCookie(o.conf.name, {}, {expires:exp});
+		}
+	};
+
+	// ----- start reading -----
+
+	var read = forceArray(o.conf.read), storage = null;
+
+	$.each(read, function(i, v){
+
+		if (String(v).toLowerCase() === 'localstorage') {
+			storage = JSON.parse(localStorage.getItem(o.conf.name));
+		}
+		else if (String(v).toLowerCase() === 'cookie') {
+			storage = readCookie(o.conf.name);
+		}
+		else if (v !== null) {
+			storage = v;
+		}
+
+		if (storage !== null) {
+			// storageに何かしらのデータがあればそれを採用して抜ける
+			return false;
+		}
+
+	});
+
+	storage = storage || {};
+
+	// ----- end reading -----
+
+	// ----- start restoring -----
+
+	$.each(storage, function(k, v){
+
+		var target = '.senbei[name=' + '"' + k + '"]';
+
+		if (v.control === 'input' || v.control === 'textarea') {
+
+			// radio or checkbox
+			if (v.type === 'radio' || v.type === 'checkbox') {
+
+				var values = forceArray(v.value);
+
+				// 一度チェックをすべて解除
+				// これにより属性値のcheckedを解除する
+				// 初訪問の場合は属性値のcheckedが適用されるが、一度でも変更を加えた場合はそれが無視される
+				$(target).prop('checked', false);
+
+				$.each(values, function(j, w){
+					var spec =  target + '[value="' + w + '"]';
+					$(spec).prop('checked', true);
+				});
+
+			}
+			// the others
+			else {
+				$(target).val(v.value);
+			}
+
+		}
+		// select
+		else if (v.control === 'select') {
+
+			$target = $(target).find('option').prop('selected', false);
+
+			$.each(v.value, function(j, w){
+				$target.filter('[value="' + w + '"]').prop('selected', true);
+			});
+
+		}
+
+	});
+
+	// ----- end restoring -----
+
+	// senbeiクラスの付いた要素に変更が行われたとき
+	$('.senbei').on('change', function(){
+
+		// 変更が行われた要素
+		var $self = $(this);
+
+		var name = $self.attr('name');
+
+		// 変更が行われた要素と同じnameをもつ要素群
+		var $selves = $('[name="' + name + '"]');
+
+		// storageに書き込み
+		// ----- start writing -----
+
+		var write = forceArray(o.conf.write);
+
+		storage[name] = {
+			control: $self.tag(),
+			type: $self.type(),
+			value: getValue($self.tag(), $selves),
+		};
+
+		$.each(write, function(i, v){
+
+			if (String(v).toLowerCase() === 'localstorage') {
+				localStorage.setItem(o.conf.name, JSON.stringify(storage));
+			}
+			else if (String(v).toLowerCase() === 'cookie') {
+				writeCookie(o.conf.name, storage, o.conf.cookie);
+			}
+			else if (typeof v === 'function') {
+				v(storage);
+			}
+
+		});
+
+		// ----- end writing -----
+
+	});
+
+	$.each(conditions, function(i, v){
+
+		var w = $.extend({
+			name: 'f' + i,
+			base: null, // jQuery object
+			condition: function(){ return null; },
+			t: function(){ return null; },
+			f: function(){ return null; },
+			n: function(){ return null; },
+			on: {},
+		}, v);
+
+		o[w.name] = function() {
+			var bool = w.condition(w.base);
+			if (bool) {
+				w.t(w.base);
+			}
+			else if (bool !== null || !bool) {
+				w.f(w.base);
+			}
+			w.n(w.base);
+		};
+
+		o[w.name]();
+
+		for (var k in w.on) {
+
+			var values = forceArray(w.on[k]);
+
+			for (var j in values) {
+				if (values[j] === true) {
+					w.base.on(k, o[w.name]);
+				}
+				else {
+					$(values[j]).on(k, o[w.name]);
+				}
+			}
+
+		}
+
+	});
+
+	return o;
+
+	// value、チェックの入ったvalue(s)、または選択されているvalue(s)を取得
+	function getValue(control, $selves){
+
+		var type = $selves.type();
+		var value = null;
+
+		if (control === 'input' || control === 'textarea') {
+
+			// radio or checkbox
+			if (type === 'radio' || type === 'checkbox') {
+				value = [];
+				$selves.filter(':checked').each(function(){
+					value.push($(this).val());
+				});
+			}
+			// the others
+			else {
+				value = $selves.val();
+			}
+
+		}
+		// select
+		else if (control === 'select') {
+
+			value = [];
+			$selves.find('option').filter(':selected').each(function(){
+				value.push($(this).val());
+			});
+
+		}
+
+		return value;
+	}
+
+	function readCookie(name){
+		var params = document.cookie.split(';');
+		for (var i = 0; i < params.length; i++) {
+			var kv = params[i].split('=');
+			if (kv[0] === name) { return JSON.parse(decodeURIComponent(kv[1])); }
+		}
+		return null;
+	}
+
+	function writeCookie(name, value, options){
+		value = JSON.stringify(value);
+		value = encodeURIComponent(value);
+		var cookie = name + '=' + value;
+		if (options.expires) { cookie += '; expires=' + options.expires; }
+		if (options.domain) { cookie += '; domain=' + options.domain; }
+		if (options.path) { cookie += '; path=' + options.path; }
+		if (options.secure) { cookie += '; secure'; }
+		document.cookie = cookie;
+	}
+
+	function forceArray(val){
+		if (Object.prototype.toString.call(val) !== '[object Array]') {
+			return [val];
+		}
+		return val;
+	}
+
+};
+
+})(jQuery);
 (function(){
 
 // 管理者設定 (static)
 ppc.admin = cloz(base, {
 	version: cloz(base, {
-		script: '141001',
-		css: '140926',
+		script: '141013',
+		css: '141010',
 	}),
 	canonical_domain: 'eshies.net',
 	domain: 'eshies.net',
 	max_illusts: 28, // 測定対象上限数
 	min_illusts: 20, // 測定対象下限数
-	suspended: false,
 });
 
 })();
@@ -209,7 +515,7 @@ ppc.ajax = cloz(base, {
 			},
 			success: function(data){
 				ppc.logger.get('add', 'レスポンスを受信しました <- ' + url, 0);
-				self.get('_afterFilter', data, index);
+				return self.get('_afterFilter', data, index);
 			},
 			error: function(){
 				ppc.logger.get('add', 'レスポンスを受信できませんでした - ' + url, 3);
@@ -339,26 +645,22 @@ ppc.ajax.illust = cloz(ppc.ajax, {
 ppc.ajax.follower = cloz(ppc.ajax, {
 	url: 'http://www.pixiv.net/bookmark.php?type=reg_user',
 	_afterFilter: function(html){
+		var d = new $.Deferred();
 		try {
 			ppc.parser.follower.set('$doc', $(html));
 			var followers = ppc.parser.follower.get('text', 'followers'),
-			my_pixiv = ppc.parser.follower.get('text', 'my_pixiv');
+			my_pixiv = ppc.parser.follower.get('text', 'my_pixiv') || '0';
 
-			if (!my_pixiv) {
-				my_pixiv = '0';
-			}
 			ppc.user.set('followers', followers.number(0));
 			ppc.user.set('my_pixiv', my_pixiv.number(0));
+			d.resolve();
 		}
 		catch (e) {
 			ppc.logger.get('error', e);
 			return false;
 		}
 
-		// 完了をManagerに伝え、計算に入る
-		ppc.manager.get('calc');
-
-		return true;
+		return d.promise();
 	},
 });
 
@@ -933,9 +1235,9 @@ ppc.manager = cloz(base, {
 
 				// 評価回数・総合点・コメント数・閲覧数
 				var rated = ppc.parser.home.get('illust_figures', j, 'rating-count'),
-				scored = ppc.parser.home.get('illust_figures', j, 'score'),
-				commented = ppc.parser.home.get('illust_figures', j, 'comments'),
-				viewed = ppc.parser.home.get('illust_figures', j, 'views');
+					scored = ppc.parser.home.get('illust_figures', j, 'score'),
+					commented = ppc.parser.home.get('illust_figures', j, 'comments'),
+					viewed = ppc.parser.home.get('illust_figures', j, 'views');
 
 				illust.set('rated', rated);
 				illust.set('scored', scored);
@@ -947,20 +1249,22 @@ ppc.manager = cloz(base, {
 
 				// 投稿日時
 				var timestamp = parser.get('text', 'datetime'),
-				timestamp_a = timestamp.number(null),
-				datetime = new Date(timestamp_a[0], timestamp_a[1] - 1, timestamp_a[2], timestamp_a[3], timestamp_a[4], timestamp_a[5], 0),
-				timestamp_b = timestamp.split(' '),
-				date = timestamp_b[0],
-				time = timestamp_b[1],
-				milliseconds = datetime.getTime(),
-				interval = ppc.user.get('now') - milliseconds;
+					timestamp_a = timestamp.number(null),
+					datetime = new Date(timestamp_a[0], timestamp_a[1] - 1, timestamp_a[2], timestamp_a[3], timestamp_a[4], timestamp_a[5], 0),
+					timestamp_b = timestamp.split(' '),
+					date = timestamp_b[0],
+					time = timestamp_b[1],
+					milliseconds = datetime.getTime(),
+					interval = ppc.user.get('now') - milliseconds;
 
-				illust.set('timestamp', timestamp);
-				illust.set('date', date);
-				illust.set('time', time);
-				illust.set('milliseconds', milliseconds);
-				illust.set('interval', interval); // ミリ秒単位の経過時間
-				illust.set('interval_days', interval / (1000 * 60 * 60 * 24)); // 日単位の経過時間
+				illust.set({
+					timestamp: timestamp,
+					date: date,
+					time: time,
+					milliseconds: milliseconds,
+					interval: interval, // ミリ秒単位の経過時間
+					interval_days: interval / (1000 * 60 * 60 * 24), // 日単位の経過時間
+				});
 
 				// HOT
 				var hot = ppc.math.get('div', viewed, interval / (1000 * 60 * 60 * 24));
@@ -978,8 +1282,11 @@ ppc.manager = cloz(base, {
 				// タグ数
 				tags_num_total = parser.get('length', 'tags_num_total');
 				tags_num_self = parser.get('length', 'tags_num_self');
-				illust.set('tags_num_total', tags_num_total);
-				illust.set('tags_num_self', tags_num_self);
+
+				illust.set({
+					tags_num_total: tags_num_total,
+					tags_num_self: tags_num_self,
+				});
 
 				// 最新ブックマーク
 				$bookmarked_latest = parser.get('jq', 'bookmarked_latest');
@@ -988,16 +1295,15 @@ ppc.manager = cloz(base, {
 			}
 
 			// ユーザーID(数字)・ニックネーム・投稿数
-			var user_id = ppc.parser.home.get('attr', 'user_id', 'href').number(0),
-			user_name = ppc.parser.illust.illusts[0].get('text', 'user_name'),
-			posted = ppc.parser.home.get('text', 'posted').number(0);
+			var user_name = ppc.parser.illust.illusts[0].get('text', 'user_name'),
+				posted = ppc.parser.home.get('text', 'posted').number(0);
 
-			ppc.user.set('id', user_id);
-			ppc.user.set('nickname', user_name);
-			ppc.user.set('posted', posted);
+			ppc.user.set({
+				nickname: user_name,
+				posted: posted,
+			});
 
-			// フォロワー数・マイピク数取得
-			ppc.ajax.follower.get('load');
+			this.get('_calc');
 
 		}
 		catch (e){
@@ -1007,41 +1313,45 @@ ppc.manager = cloz(base, {
 
 		ppc.logger.get('add', 'データ処理を完了しました', 0);
 	},
-	calc: function(){
+	_calc: function(){
 		ppc.logger.get('add', '計算を開始しました');
 
 		// 各パラメータ合計
 		var rated_sum = ppc.math.get('sum', ppc.illusts, 'rated'),
-		scored_sum = ppc.math.get('sum', ppc.illusts, 'scored'),
-		commented_sum = ppc.math.get('sum', ppc.illusts, 'commented'),
-		viewed_sum = ppc.math.get('sum', ppc.illusts, 'viewed'),
-		bookmarked_sum = ppc.math.get('sum', ppc.illusts, 'bookmarked_total'),
-		bookmarked_public_sum = ppc.math.get('sum', ppc.illusts, 'bookmarked_public'),
-		hot_sum = ppc.math.get('sum', ppc.illusts, 'hot');
+			scored_sum = ppc.math.get('sum', ppc.illusts, 'scored'),
+			commented_sum = ppc.math.get('sum', ppc.illusts, 'commented'),
+			viewed_sum = ppc.math.get('sum', ppc.illusts, 'viewed'),
+			bookmarked_sum = ppc.math.get('sum', ppc.illusts, 'bookmarked_total'),
+			bookmarked_public_sum = ppc.math.get('sum', ppc.illusts, 'bookmarked_public'),
+			hot_sum = ppc.math.get('sum', ppc.illusts, 'hot');
 
-		ppc.user.set('rated_sum', rated_sum);
-		ppc.user.set('scored_sum', scored_sum);
-		ppc.user.set('commented_sum', commented_sum);
-		ppc.user.set('viewed_sum', viewed_sum);
-		ppc.user.set('bookmarked_sum', bookmarked_sum);
-		ppc.user.set('bookmarked_public_sum', bookmarked_public_sum);
-		ppc.user.set('hot_sum', hot_sum | 0);
+		ppc.user.set({
+			rated_sum: rated_sum,
+			scored_sum: scored_sum,
+			commented_sum: commented_sum,
+			viewed_sum: viewed_sum,
+			bookmarked_sum: bookmarked_sum,
+			bookmarked_public_sum: bookmarked_public_sum,
+			hot_sum: hot_sum | 0,
+		});
 
 		try {
 			var now = ppc.user.get('now'),
-			illusts = ppc.user.get('illusts'),
-			followers = ppc.user.get('followers'),
-			my_pixiv = ppc.user.get('my_pixiv'),
-			total_power = 0,
-			pixiv_power = 0;
+				illusts = ppc.user.get('illusts'),
+				followers = ppc.user.get('followers'),
+				my_pixiv = ppc.user.get('my_pixiv'),
+				total_power = 0,
+				pixiv_power = 0;
 
 			var index_last = illusts - 1,
 			interval_longest = (now - ppc.illusts[index_last].get('milliseconds')) / (1000 * 60 * 60 * 24);
 
 			var interval_average = interval_longest / illusts;
 
-			ppc.user.set('interval_longest', interval_longest);
-			ppc.user.set('interval_average', interval_average.toFixed(1));
+			ppc.user.set({
+				interval_longest: interval_longest,
+				interval_average: interval_average.toFixed(1),
+			});
 
 			for (var i = 0; i < illusts; i++) {
 				var illust = ppc.illusts[i],
@@ -1068,8 +1378,10 @@ ppc.manager = cloz(base, {
 					total_power += power;
 				}
 
-				illust.set('freshment', freshment);
-				illust.set('power', power);
+				illust.set({
+					freshment: freshment,
+					power: power,
+				});
 
 				// Elements
 				var elements = [
@@ -1087,8 +1399,10 @@ ppc.manager = cloz(base, {
 			}
 
 			pixiv_power = ppc.math.get('pixivPower', followers, my_pixiv, total_power, hot_sum);
-			ppc.user.set('total_power', Math.ceil(total_power));
-			ppc.user.set('pixiv_power', Math.ceil(pixiv_power));
+			ppc.user.set({
+				total_power: Math.ceil(total_power),
+				pixiv_power: Math.ceil(pixiv_power),
+			});
 
 		}
 		catch (e) {
@@ -1163,8 +1477,7 @@ ppc.old = cloz(base, {
 			$('#btn-ppc').addClass('disabled').text('測定しています').off();
 			window.scroll(0,0);
 
-			if ($('#gstchk').prop('checked')) {
-				$('<img id="guest" src="' + ppc.uri.get('img') + '/' + ppc.user.get('guest_profile').PpcGuest.illust_id + '.' + ppc.user.get('guest_profile').FileExtension.name + '" width="180" height="180" style="margin:5px;display:none;" />').appendTo($ppc_result);
+			if (ppc.user.get('guest')) {
 				if (ppc.user.get('guest_profile').PpcGuest.illust_id) {
 					$('#guest', $ppc_result).wrap('<a href="http://www.pixiv.net/member_illust.php?mode=medium&illust_id=' + ppc.user.get('guest_profile').PpcGuest.illust_id + '" target="_blank"></a>');
 				}
@@ -1174,7 +1487,6 @@ ppc.old = cloz(base, {
 			}
 			else {
 				ppc.user.set('guest', false);
-				$('<div>').attr({id:'guest', width:'180px'}).appendTo($ppc_result);
 				$('#guest', $ppc_result).wrap('<span>');
 				index = 0;
 			}
@@ -1196,35 +1508,6 @@ ppc.old = cloz(base, {
 			ppc.parser.created.get('jq', 'tab_group').tabs({
 				disabled: false,
 			});
-
-			ppc.renderer.get('render').get('at', '#totalResult .column-body', $ppc_result);
-			$('#guest').parent().wrap('<div id="ppc_left" />');
-			$('<div>', {id: 'ppc_right'}).insertAfter('#ppc_left');
-
-			// ソート切り替えナビゲーション挿入
-			$('<div>', {
-					class: 'extaraNaviAlso edit_work_navi',
-					html: $('<ul>', {
-							html: function(){
-								$('<span>', {id: 'temp'}).appendTo('body');
-								for (var k in ppc.constants.get('sort_keys').getAll()) {
-									$('<li>', {
-										html: $('<a>', {
-											class: 'black_link sort-by sort-by-' + k,
-											href: '#',
-											'data-sort-by': k,
-											html: ppc.constants.get('sort_keys').get(k) + '<i class="fa fa-sort-numeric-desc"></i><i class="fa fa-sort-numeric-asc"></i>',
-										})
-									}).appendTo('#temp');
-								}
-								var result = $('#temp').html();
-								$('#temp').remove();
-								return result;
-							}
-						}
-					)
-				}
-			).appendTo('#detail .column-body');
 
 			$('.sort-by').on('click', function(){
 				var self = $(this);
@@ -1249,13 +1532,11 @@ ppc.old = cloz(base, {
 				return false;
 			});
 
-			$('<ul>', {id: 'sortableList'}).appendTo('#detail .column-body');
-
 			$('.sort-by.sort-by-id').addClass('desc').addClass('active').find('.fa-sort-numeric-desc').css('display', 'inline');
 			ppc.old.get('arrange', ppc.constants.get('sort_keys').get('id'), ppc.illusts, 'desc');
 
 			var message_start = ppc.user.get('guest_profile').PpcMessage.start,
-			message_end = ppc.user.get('guest_profile').PpcMessage.end;
+				message_end = ppc.user.get('guest_profile').PpcMessage.end;
 
 			if (!message_start || !ppc.user.get('guest')) {
 				message_start = 'あなたのpixivパワーは';
@@ -1264,19 +1545,30 @@ ppc.old = cloz(base, {
 				message_end = 'です！';
 			}
 
-			$('#ppc_result')
-			.prepend($('<div>', {id: 'ppc_bottom'}))
-			.prepend(
-				$('<div>', {id: 'ppc'})
-				.append($('<div>', {class: 'message-start', html: message_start}))
-				.append($('<div>', {id: 'result', text: 0}))
-				.append($('<div>', {class: 'message-end', html: message_end}))
-			)
-			.prepend($('<div>', {id: 'ppc_top'}));
+			// ゲストのメッセージを埋め込む
+			ppc.renderer.get('alter', '.message-start', message_start);
+			ppc.renderer.get('alter', '.message-end', message_end);
 
-			$('#guest').show();
+			if (ppc.user.get('guest')) {
+				$('#guest').show();
+			}
 
-			this.get('_step1');
+			$('#ppc_result').show();
+
+			// 連続処理
+			this.get('_step1').then(function(){
+				return ppc.old.get('_wait1');
+			}).then(function(){
+				return ppc.old.get('_step2');
+			}).then(function(){
+				return $.when(
+					ppc.old.get('_wait2'),
+					ppc.old.get('_save') // パワーの保存
+				);
+			}).then(function(){
+				ppc.old.get('_showNeighbors');
+				ppc.logger.get('add', 'すべての処理が完了しました', 0);
+			});
 
 		}
 		catch (e) {
@@ -1286,6 +1578,7 @@ ppc.old = cloz(base, {
 		return true;
 	},
 	_step1: function(){
+		var d = new $.Deferred();
 		var total_power = ppc.user.get('total_power'),
 			piece = Math.round(total_power / 100),
 			$result = ppc.parser.created.get('jq', 'result'),
@@ -1296,75 +1589,104 @@ ppc.old = cloz(base, {
 		// 例外：パワーが0の場合
 		if (total_power === 0) {
 			self.get('_wait1');
-			return true;
+			return d.promise();
 		}
 
-		var timer = window.setInterval(function(){
-			n += piece;
-			if (n > total_power) {
-				n = total_power;
+		if (ppc.user.get('animation')) {
+			var timer = window.setInterval(function(){
+				n += piece;
+				if (n > total_power) {
+					n = total_power;
+					$result.text(n.comma());
+					clearInterval(timer);
+					d.resolve();
+				}
 				$result.text(n.comma());
-				clearInterval(timer);
-				self.get('_wait1');
-			}
-			$result.text(n.comma());
-		}, 30);
-		return true;
+			}, 30);
+		}
+		else {
+			$result.text(total_power.comma());
+			d.resolve();
+		}
+
+		return d.promise();
 	},
 	_wait1: function(){
-		var self = this;
+
+		var d = new $.Deferred();
+
+		var timeout = ppc.user.get('animation') ? 1500 : 0;
+
 		window.setTimeout(function(){
+
 			$('#ppc_left')
-			.append(
-				$('<div>', {
-					class: 'bonus',
-					text: 'フォロワー補正： +' + (ppc.user.get('followers') * 0.01).toFixed(2) + '%',
-				})
-			)
-			.append(
-				$('<div>', {
-					class: 'bonus',
-					text: 'マイピク補正： +' + (ppc.user.get('my_pixiv') * 0.1).toFixed(1) + '%',
-				})
-			)
-			.append(
-				$('<div>', {
-					class: 'bonus',
-					text: '勢い補正： +' + ppc.user.get('hot_sum').comma(),
-				})
-			)
-			.find('.bonus').fadeIn();
-			self.get('_step2');
-		}, 1500);
+				.append(
+					$('<div>', {
+						class: 'bonus',
+						text: 'フォロワー補正： +' + (ppc.user.get('followers') * 0.01).toFixed(2) + '%',
+					})
+				)
+				.append(
+					$('<div>', {
+						class: 'bonus',
+						text: 'マイピク補正： +' + (ppc.user.get('my_pixiv') * 0.1).toFixed(1) + '%',
+					})
+				)
+				.append(
+					$('<div>', {
+						class: 'bonus',
+						text: '勢い補正： +' + ppc.user.get('hot_sum').comma(),
+					})
+				)
+				.find('.bonus').fadeIn();
+			d.resolve();
+
+		}, timeout);
+
+		return d.promise();
 	},
 	_step2: function(){
+		var d = new $.Deferred();
 		var total_power = ppc.user.get('total_power'),
 			pixiv_power = ppc.user.get('pixiv_power'),
 			piece = Math.round((pixiv_power - total_power) / 20),
 			$result = ppc.parser.created.get('jq', 'result'),
-			n = total_power,
-			self = this;
+			n = total_power;
+
 		$result.css('color', '#f99');
 
 		// 例外：パワーが0の場合
 		if (pixiv_power === 0) {
-			self.get('_wait2');
-			return true;
+			d.resolve();
+
+			return d.promise();
 		}
 
-		var timer = window.setInterval(function(){
-			n += piece;
-			if (n > pixiv_power) {
-				n = pixiv_power;
-				$result.css('color', 'red').text(n.comma());
-				clearInterval(timer);
-				self.get('_wait2');
-			}
-			$result.text(n.comma());
-		}, 30);
-		return true;
+		if (ppc.user.get('animation')) {
+			var timer = window.setInterval(function(){
+				n += piece;
+				if (n > pixiv_power) {
+					n = pixiv_power;
+					$result.css('color', 'red').text(n.comma());
+					clearInterval(timer);
+					d.resolve();
+				}
+				$result.text(n.comma());
+			}, 30);
+		}
+		else {
+			$result.css('color', 'red').text(pixiv_power.comma());
+			d.resolve();
+		}
+
+		return d.promise();
 	},
 	_wait2: function(){
+
+		var d = new $.Deferred();
+
+		var timeout = ppc.user.get('animation') ? 1500 : 0;
+
 		var user_id = ppc.user.get('id'),
 		nickname = ppc.user.get('nickname'),
 		pixiv_power = ppc.user.get('pixiv_power'),
@@ -1434,35 +1756,37 @@ ppc.old = cloz(base, {
 				}
 
 				$('#ppc_left')
-				.append(
-					$('<div>', {
-						class: 'summary-interval-average',
-						text: '平均投稿間隔： ' + ppc.user.get('interval_average') + '日',
-					})
-				)
-				.append(
-					$('<div>', {
-						class: 'summary-rank',
-						html: 'ランク: <span class="rank">' + rank +'</span>',
-					})
-				)
-				.find('.summary-interval-average, .summary-rank').fadeIn();
+					.append(
+						$('<div>', {
+							class: 'summary-interval-average',
+							text: '平均投稿間隔： ' + ppc.user.get('interval_average') + '日',
+						})
+					)
+					.append(
+						$('<div>', {
+							class: 'summary-rank',
+							html: 'ランク: <span class="rank">' + rank +'</span>',
+						})
+					)
+					.find('.summary-interval-average, .summary-rank').fadeIn();
 
 				$('<div>').fadeIn().html('pixivパワー: <span>' + pixiv_power.comma() +'</span>').insertBefore('#ppc_left>div:first');
 				$('<div>').fadeIn().html('測定対象数: <span>' + ppc.user.get('illusts') +'</span>').insertBefore('#ppc_left>div:first');
 				$('<div>').fadeIn().html('投稿数: <span>' + ppc.user.get('posted') +'</span>').insertBefore('#ppc_left>div:first');
 
 				// 仮想順位の表示
-				if(ppc.cookie.ppc.get('output', 'rnkchk', false)){
-					$('<div>').css({display: 'none'}).fadeIn().html('仮想順位： <strong>' + vranking +'</strong> / 10000 前回順位： ' + ppc.cookie.ppc.get('output', 'ranking', 'データ無し')).appendTo('#ppc_right');
+				if (ppc.user.get('vranking')){
+					ppc.renderer.get('update', '.order-vranking', vranking);
 					ppc.cookie.ppc.get('input', 'ranking', vranking);
 					ppc.cookie.ppc.get('write');
+				}
+				else {
+					$('#vranking').css('display', 'none');
 				}
 
 				$('<br>').appendTo('#ppc_result');
 
 				// サマリーの表示
-				ppc.renderer.get('render').get('at', '#ppc_right', ppc.parser.template.get('jq', 'summary'));
 				$('#summary')
 					.find('.illusts').text(ppc.user.get('illusts')).end()
 					.find('.rate')
@@ -1494,7 +1818,7 @@ ppc.old = cloz(base, {
 
 				// パワー標準偏差、HOT標準偏差
 				var sd_power = ppc.math.get('standardDeviation', illusts, 'power', total_power),
-				sd_hot = ppc.math.get('standardDeviation', illusts, 'hot', ppc.user.get('hot_sum'));
+					sd_hot = ppc.math.get('standardDeviation', illusts, 'hot', ppc.user.get('hot_sum'));
 
 				$.each(illusts, function(i, v){
 					var data = {};
@@ -1514,14 +1838,13 @@ ppc.old = cloz(base, {
 
 				});
 
+				$('#ppc_right').show();
+
 			}
 			catch (e) {
 				ppc.logger.get('error', e);
 				return false;
 			}
-
-			// パワーの保存
-			self.get('_save');
 
 			// タイムラインの埋め込み
 			$('<a>', {
@@ -1534,14 +1857,11 @@ ppc.old = cloz(base, {
 				var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+"://platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
 			}(document,'script','twitter-wjs');
 
+			// ツイートボタンにリンクを貼る
 			var tweet1 = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(nickname + 'のpixivパワーは【' + pixiv_power.comma() + '】です。') + '&hashtags=' + encodeURIComponent('pixivパワーチェッカー') + '&url=http://www.pixiv.net/member.php?id=' + user_id;
 			var tweet2 = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent('私のpixivパワーは【' + pixiv_power.comma() + '】です。') + '&hashtags=' + encodeURIComponent('pixivパワーチェッカー');
 
-			$('<div>', {id: 'tweet'}).appendTo('#ppc_right');
-			$('<button>', {id: 'btn-tweet', class: 'ppc-button', html: '<i class="fa fa-twitter"></i>結果をツイート'}).appendTo('#tweet');
 			$('#btn-tweet').wrap($('<a/>', {class: 'wrapper-btn-tweet'}).attr('href', tweet1).attr('target', '_blank'));
-			$('<br><input type="checkbox" id="pidchk"><label for="pidchk">pixivへのリンクを載せる</label>').appendTo('#tweet');
-			$('#pidchk').attr('checked', ppc.cookie.ppc.get('output', 'pidchk', true));
 
 			if (!($('#pidchk').prop('checked'))){
 				$('#tweet a').attr('href', tweet2);
@@ -1583,13 +1903,15 @@ ppc.old = cloz(base, {
 			// リンクを新しいタブで開くようにする
 			ppc.renderer.get('addNewTabLink', ppc.parser.home.get('jq', 'contents'));
 			$('a[href^="javascript"], a[href="#"]').attr('target', '');
+			d.resolve();
 
-		}, 1500);
+		}, timeout);
 
-		ppc.logger.get('add', 'すべての処理が完了しました', 0);
+		return d.promise();
 
 	},
 	_save: function(){
+		var d = new $.Deferred();
 		var pixiv_power = ppc.user.get('pixiv_power');
 		var last_power = ppc.user.get('last_power');
 		try {
@@ -1599,93 +1921,108 @@ ppc.old = cloz(base, {
 					release = $('input[name="release"]:checked').attr('value');
 				}
 
-				$('<div>', {id:'neighbors-mes'}).appendTo('#totalResult .column-body');
-
-				$('<div>', {id:'ppc_neighbors'}).appendTo('#totalResult .column-body');
-
-				$.getJSON(ppc.uri.get('record') + '?callback=?',
-					{
+				$.getJSON(ppc.uri.get('record') + '?callback=?', {
 						User: {pixiv_id: ppc.user.get('id'), twitter_name: ppc.user.get('twitter_name'), name: ppc.user.get('name')},
 						PpcPower: {power: pixiv_power, release: release},
 						token: ppc.user.get('token'),
-					},
-					function(data){
-						if (data.status == 'ok') {
-							var target = $('#login_status').find('.updown:first'),
-								updown = pixiv_power - last_power,
-								text = 'pixivパワーを保存しました';
-
-							if (updown >= 0) {
-								updown = '(+' + updown.comma() + ')';
-								target.addClass('up').text(updown);
-							}
-							else {
-								updown = '(' + updown.comma() + ')';
-								target.addClass('down').text(updown);
-							}
-							ppc.renderer.get('update', '#login_status .last_power:first', pixiv_power.comma());
-							ppc.renderer.get('fillRanking');
-
-							if (release == 1) {
-								text += '（ランキングにTwitterとpixivを公開）';
-							}
-							else if (release == 2) {
-								text += '（ランキングにTwitterのみ公開）';
-							}
-							else if (release == 3) {
-								text += '（ランキングに匿名で公開）';
-							}
-							ppc.logger.get('add', text, 0);
-
-							if (data.neighbors.length) {
-								ppc.renderer.get('update', '#neighbors-mes', 'あなたとpixivパワーが近いユーザー（Twitterとpixivを公開しているユーザーのみ表示）');
-								$.each(data.neighbors, function(i, v){
-									var img = v.User.twitter_image;
-
-									if (img.substr(7, 10) !== ppc.admin.get('canonical_domain')) {
-										img = ppc.uri.get('img') + '/profile.png';
-									}
-									$('<div>', {class:'ppc-unit'})
-									.append(
-										$('<div>',{class:'ppc-power',text: Number(v.PpcPower.power).comma()})
-									)
-									.append(
-										$('<a>',{class:'twitter-image',href:'http://twitter.com/' + v.User.twitter_name, target:'_blank'})
-										.append(
-											$('<img>',{width:'48',height:'48',border:'0',alt:v.User.name,src:img})
-										)
-									)
-									.append(
-										$('<a>',{href:'http://twitter.com/' + v.User.twitter_name, target:'_blank'})
-										.append(
-											$('<div>',{class:'ppc-name',text:v.User.name})
-										)
-									)
-									.append(
-										$('<a>',{href:'http://www.pixiv.net/member.php?id=' + v.User.pixiv_id, target:'_blank'})
-										.append(
-											$('<div>',{class:'ppc-pixiv_id',text:'(' + v.User.pixiv_id + ')'})
-										)
-									)
-									.appendTo('#ppc_neighbors');
-								});
-							}
-							else {
-								ppc.renderer.get('update', '#neightbors-mes', 'あなたとpixivパワーが近い公開ユーザーはいません');
-							}
-						}
-						else if (data.status == 'error') {
-							ppc.logger.get('error', data);
-						}
 					}
-				);
+				).then(function(data){
+
+					// パワーの近いユーザー
+					ppc.user.set('neighbors', data.neighbors);
+
+					if (data.status == 'ok') {
+						var target = $('#login_status').find('.updown:first'),
+							updown = pixiv_power - last_power,
+							text = 'pixivパワーを保存しました';
+
+						if (updown >= 0) {
+							updown = '(+' + updown.comma() + ')';
+							target.addClass('up').text(updown);
+						}
+						else {
+							updown = '(' + updown.comma() + ')';
+							target.addClass('down').text(updown);
+						}
+						ppc.renderer.get('update', '#login_status .last_power:first', pixiv_power.comma());
+						ppc.renderer.get('fillRanking');
+
+						if (release == 1) {
+							text += '（ランキングにTwitterとpixivを公開）';
+						}
+						else if (release == 2) {
+							text += '（ランキングにTwitterのみ公開）';
+						}
+						else if (release == 3) {
+							text += '（ランキングに匿名で公開）';
+						}
+						ppc.logger.get('add', text, 0);
+
+						d.resolve();
+					}
+					else if (data.status == 'error') {
+						ppc.logger.get('error', data);
+						return false;
+					}
+				});
 
 			}
+			else {
+				d.resolve();
+			}
+
+			return d.promise();
 		}
 		catch (e) {
 			ppc.logger.get('error', e);
 			return false;
 		}
+	},
+	_showNeighbors: function(){
+
+		// twitter連携してないとneighborsが取得できないので…（パワーを送信する必要が生じるため）
+		if (ppc.user.get('twitter')) {
+			var neighbors = ppc.user.get('neighbors');
+			if (neighbors.length) {
+				ppc.renderer.get('update', '#neighbors-mes', 'あなたとpixivパワーが近いユーザー（Twitterとpixivを公開しているユーザーのみ表示）');
+				$.each(neighbors, function(i, v){
+					var img = v.User.twitter_image;
+
+					if (img.substr(7, 10) !== ppc.admin.get('canonical_domain')) {
+						img = ppc.uri.get('img') + '/profile.png';
+					}
+					$('<div>', {class:'ppc-unit'})
+					.append(
+						$('<div>',{class:'ppc-power',text: Number(v.PpcPower.power).comma()})
+					)
+					.append(
+						$('<a>',{class:'twitter-image',href:'http://twitter.com/' + v.User.twitter_name, target:'_blank'})
+						.append(
+							$('<img>',{width:'48',height:'48',border:'0',alt:v.User.name,src:img})
+						)
+					)
+					.append(
+						$('<a>',{href:'http://twitter.com/' + v.User.twitter_name, target:'_blank'})
+						.append(
+							$('<div>',{class:'ppc-name',text:v.User.name})
+						)
+					)
+					.append(
+						$('<a>',{href:'http://www.pixiv.net/member.php?id=' + v.User.pixiv_id, target:'_blank'})
+						.append(
+							$('<div>',{class:'ppc-pixiv_id',text:'(' + v.User.pixiv_id + ')'})
+						)
+					)
+					.appendTo('#ppc_neighbors');
+				});
+			}
+			else {
+				ppc.renderer.get('update', '#neightbors-mes', 'あなたとpixivパワーが近い公開ユーザーはいません');
+			}
+			$('#neighbors-mes, #ppc_neighbors').show();
+		}
+
+		return;
 	},
 	// 作品詳細の並べ替え
 	arrange: function(text, illusts, order){
@@ -1801,12 +2138,7 @@ ppc.old = cloz(base, {
 // Parser
 ppc.parser = cloz(base, {
 	$doc: $(document),
-	selector: cloz(base, {
-		col_l: '.layout-a .ui-layout-west',
-		col_r: '.layout-a ._unit',
-		nickname: '.user-name:first',
-		tags: '.tags:first',
-	}),
+	selector: null,
 	text: function(key){
 		return this.get('$doc').find(this.get('selector').get(key)).text();
 	},
@@ -1826,8 +2158,11 @@ ppc.parser = cloz(base, {
 		return this.get('$doc').find(this.get('selector').get(key));
 	},
 	check: function(){
-		for (var k in this.get('selector')) {
-			console.log(this.get('selector').get(key) + ' => ' + $(this.get('selector').get(key)).length);
+		for (var k in this.get('selector').getAll()) {
+			var len = $(this.get('selector').get(k)).length,
+				message = 'セレクタ検証(' + k + ') => ' + len,
+				level = len ? 1 : 2;
+			ppc.logger.get('add', message, level);
 		}
 	},
 });
@@ -1835,6 +2170,8 @@ ppc.parser = cloz(base, {
 // parser - イラスト管理ページ(member_illust.php)
 ppc.parser.home = cloz(ppc.parser, {
 	selector: cloz(base, {
+		col_l: '.layout-a .ui-layout-west',
+		col_r: '.layout-a ._unit',
 		contents: '#wrapper',
 		illust: '.display_editable_works>ul>li',
 		illust_anchor: '.display_editable_works a[href^="member_illust.php?mode=medium&illust_id="]',
@@ -1948,6 +2285,9 @@ ppc.renderer = cloz(base, {
 	update: function(selector, text){
 		$(selector).text(text);
 	},
+	alter: function(selector, html){
+		$(selector).html(html);
+	},
 	remove: function(selector){
 		$(selector).remove();
 	},
@@ -1955,6 +2295,211 @@ ppc.renderer = cloz(base, {
 		$.each(ppc.parser.home.get('ads'), function(i, selector){
 			$(selector).remove();
 		});
+	},
+	init1: function(){
+		var $leftColumn = ppc.parser.home.get('jq', 'col_l');
+		var $rightColumn = ppc.parser.home.get('jq', 'col_r');
+
+		// レイアウト上、邪魔になる要素を削除
+		this.get('removeAds');
+
+		$('<div>', {id:'buttons', class:'right-container'}).prependTo('.layout-column-2');
+		$('a', $leftColumn).attr('target', '_blank');
+		$('.display_editable_works>ul>li>span').wrap('<div class="status" />');
+
+		$rightColumn.wrapInner('<div id="works" />');
+		$rightColumn.wrap('<div id="tab_group" />');
+	},
+	init2: function(){
+		ppc.parser.created.get('jq', 'tab_group').prepend(
+			$('<ul>').prepend(
+				$('<li>').prepend(
+					$('<a>').attr('href', '#works').prepend(
+						$('<span>').text('作品')
+					)
+				)
+			)
+		);
+
+		// タブ生成
+		ppc.parser.created.get('jq', 'tab_group').find('>ul')
+			.appendTab('pixivパワー', '#totalResult')
+			.appendTab('詳細', '#detail')
+			.appendTab('環境設定', '#conf')
+			.appendTab('ログ', '#ppcLog')
+			.appendTab('お知らせ', '#ppc-info')
+			.appendTab('PPCについて', '#ppc-about');
+
+		ppc.parser.created.get('jq', 'tab_group').find('>div')
+			.append($('<div>', {id: 'totalResult', class: 'ppcTab'}))
+			.append($('<div>', {id: 'detail', class: 'ppcTab'}))
+			.append($('<div>', {id: 'conf', class: 'ppcTab'}))
+			.append($('<div>', {id: 'ppcLog', class: 'ppcTab'}))
+			.append($('<div>', {id: 'ppc-info', class: 'ppcTab'}))
+			.append($('<div>', {id: 'ppc-about', class: 'ppcTab'}));
+
+		$('#totalResult')
+			.append(ppc.utility.get('tab', 'pixivパワーの測定結果','',1))
+			.append($('<div>', {
+				id: 'processing',
+				text: '測定中',
+			}))
+			.append($('<div>', {
+				id: 'processing-description',
+				text: '測定中です。何もせずにお待ちください。',
+			}));
+
+		$('#detail').append(ppc.utility.get('tab', '各作品の詳細','',0));
+		$('#conf').append(ppc.utility.get('tab', '環境設定','',1));
+		$('#ppcLog').append(ppc.utility.get('tab', '測定のログ','',1));
+		$('#ppc-info').append(ppc.utility.get('tab', 'お知らせ','',1)).find('.column-body').appendHtml('promotion', function(){});
+		$('#ppc-about').append(ppc.utility.get('tab', 'PPCについて','',1)).find('.column-body').appendHtml('about', function(){
+			ppc.renderer.get('update', '.ppc-version', ppc.admin.get('version').get('script'));
+		});
+
+		ppc.renderer.get('render').get('at',
+			'#ppcLog .column-body',
+			$('<ul>', {
+				id: 'ppc_log',
+				css: {
+					maxHeight: '500px',
+					overflow: 'scroll',
+				}
+			})
+		);
+
+		ppc.renderer.get('render').get('at',
+			'#conf .column-body',
+			$('<div>', {
+				id: 'configuration',
+			})
+		);
+
+		$('#conf .column-body').appendHtml('ppcranking', function(){});
+
+	},
+	init3: function(){
+
+		// 測定ボタンを生成
+		ppc.parser.template.get('$doc').find('#btn-ppc').appendTo('#buttons');
+
+		// ログインステータスの表示
+		$('#buttons').appendHtml('login_status', function(){
+			if (window.addEventListener) {
+				window.addEventListener('message', function(e){
+					var data = JSON.parse(e.data);
+					if (e.origin === ppc.uri.get('home') || e.origin === ppc.uri.get('home') + '/') {
+						ppc.renderer.get('fillUserStatus', data);
+						ppc.renderer.get('fillRanking');
+					}
+				});
+			}
+			if (ppc.user.get('release') > 0) {
+				ppc.renderer.get('update', '#login_status .join', '参加');
+			}
+			else {
+				ppc.renderer.get('update', '#login_status .join', '不参加（「環境設定」から変更できます）');
+			}
+		});
+
+		// Twitterログインボタンの生成
+		ppc.renderer.get('render').get('at',
+			'#buttons',
+			$('<iframe>', {
+				id: 'login_with_twitter',
+				class: 'button',
+				name: 'login_with_twitter',
+				width: '120',
+				height: '34',
+				src: ppc.uri.get('home') + '/twitter/button',
+			})
+		);
+
+		// Tiwtterアイコン、screen nameの表示
+		ppc.renderer.get('render').get('at', '#buttons', $('<img>', {id:'profile_image'}));
+		ppc.renderer.get('render').get('at', '#buttons', $('<span>', {id:'screen_name', text:'Twitterとの連携でパワーの保存やランキングへの参加ができます'}));
+
+		ppc.renderer.get('render').get('at', '#totalResult .column-body', $ppc_result);
+
+		$('#ppc_result')
+			.prepend($('<div>', {id: 'ppc_bottom'}))
+			.prepend(
+				$('<div>', {id: 'ppc'})
+					.append($('<div>', {class: 'message-start'}))
+					.append($('<div>', {id: 'result', text: 0}))
+					.append($('<div>', {class: 'message-end'}))
+			)
+			.prepend($('<div>', {id: 'ppc_top'}));
+
+		// guest
+		$('<img id="guest" src="' + ppc.uri.get('img') + '/' + ppc.user.get('guest_profile').PpcGuest.illust_id + '.' + ppc.user.get('guest_profile').FileExtension.name + '" width="180" height="180" style="margin:5px;display:none;" />').appendTo($ppc_result);
+
+		$('#guest').wrap('<div id="ppc_left" />');
+		$('<div>', {id: 'ppc_right'}).insertAfter('#ppc_left');
+
+		// 仮想順位
+		$('<div>', {
+			id: 'vranking',
+		}).html('仮想順位： <strong class="order-vranking">???</strong> / 10000 前回順位： ' + ppc.cookie.ppc.get('output', 'ranking', 'データ無し')).appendTo('#ppc_right');
+
+		// サマリー
+		ppc.renderer.get('render').get('at', '#ppc_right', ppc.parser.template.get('jq', 'summary'));
+
+		// ツイートボタン
+		$('<div>', {id: 'tweet'}).appendTo('#ppc_right')
+			.append($('<button>', {
+				id: 'btn-tweet',
+				class: 'ppc-button',
+				html: '<i class="fa fa-twitter"></i>結果をツイート',
+			}))
+			.append('<br>')
+			.append($('<input type="checkbox" checked>') // type属性は後から追加できない模様
+				.attr({
+					id: 'pidchk',
+					class: 'senbei',
+					name: 'add-pixiv',
+					value: '1',
+				}))
+			.append($('<label>', {
+				for: 'pidchk',
+				text: 'pixivへのリンクを載せる',
+			}));
+
+		// パワーの近いユーザー
+		$('#totalResult .column-body')
+			.append($('<div>', {id: 'neighbors-mes'}).css('display', 'none'))
+			.append($('<div>', {id: 'ppc_neighbors'}).css('display', 'none'));
+
+		// ソート切り替えナビゲーション挿入
+		$('<div>', {
+				class: 'extaraNaviAlso edit_work_navi',
+				html: $('<ul>', {
+						html: function(){
+							$('<span>', {id: 'temp'}).appendTo('body');
+							for (var k in ppc.constants.get('sort_keys').getAll()) {
+								$('<li>', {
+									html: $('<a>', {
+										class: 'black_link sort-by sort-by-' + k,
+										href: '#',
+										'data-sort-by': k,
+										html: ppc.constants.get('sort_keys').get(k) + '<i class="fa fa-sort-numeric-desc"></i><i class="fa fa-sort-numeric-asc"></i>',
+									})
+								}).appendTo('#temp');
+							}
+							var result = $('#temp').html();
+							$('#temp').remove();
+							return result;
+						}
+					}
+				)
+			}
+		).appendTo('#detail .column-body');
+
+		$('<ul>', {id: 'sortableList'}).appendTo('#detail .column-body');
+
+	},
+	senbei: function(){
+		ppc.senbei.get('init');
 	},
 	fillUserStatus: function(data){
 		try {
@@ -1976,17 +2521,17 @@ ppc.renderer = cloz(base, {
 				var t = window.setInterval(function(){
 					if ($('#ppcranking').length == 1) {
 						clearInterval(t);
-						$('#ppcranking').attr('checked', true);
-						if ($('#ppcranking').attr('checked')) { $('#login_status .join').text('参加'); }
-						if (data.release == 1) {$('#release1').attr('checked', true);}
-						else if (data.release == 2) {$('#release2').attr('checked', true);}
-						else if (data.release == 3) {$('#release3').attr('checked', true);}
+						$('#ppcranking').prop('checked', true);
+						if ($('#ppcranking').prop('checked')) { $('#login_status .join').text('参加'); }
+						if (data.release == 1) { $('#release1').prop('checked', true); }
+						else if (data.release == 2) { $('#release2').prop('checked', true); }
+						else if (data.release == 3) { $('#release3').prop('checked', true); }
 					}
 				}, 200);
 			}
 			else {
-				$('#ppcranking').attr('checked', false);
-				if (!$('#ppcranking').attr('checked')) { $('#login_status .join').text('不参加（環境設定から変更できます）'); }
+				$('#ppcranking').prop('checked', false);
+				if (!$('#ppcranking').prop('checked')) { $('#login_status .join').text('不参加（環境設定から変更できます）'); }
 			}
 		}
 		catch (e) {
@@ -2006,26 +2551,24 @@ ppc.renderer = cloz(base, {
 		});
 	},
 	activateStartButton: function(){
-		if (!ppc.admin.get('suspended')) {
-			$('#btn-ppc').on('click', function(){
+		$('#btn-ppc').on('click', function(){
 
-				// old
-				if (!ppc.old.get('button')) {
-					return false;
-				}
+			// old
+			if (!ppc.old.get('button')) {
+				return false;
+			}
 
-				if (!ppc.manager.get('init')) {
-					return false;
-				}
+			if (!ppc.manager.get('init')) {
+				return false;
+			}
 
-				if (!ppc.manager.get('run')) {
-					return false;
-				}
+			if (!ppc.manager.get('run')) {
+				return false;
+			}
 
-				return true;
+			return true;
 
-			}).removeClass('disabled').text('測定する！');
-		}
+		}).removeClass('disabled').text('測定する！');
 	},
 	addNewTabLink: function(selector){
 		$(selector).find('a').attr('target', '_blank');
@@ -2034,6 +2577,66 @@ ppc.renderer = cloz(base, {
 
 })(jQuery);
 
+(function($){
+
+	// Senbei
+	ppc.senbei = cloz(base,{
+		self: null,
+		storage: null,
+		init: function(){
+			var self = senbei({
+				name: 'ppc' + ppc.user.get('id'),
+				read: 'localStorage',
+				write: ['localStorage', function(s){ ppc.senbei.set('storage', s); }]
+			},[
+				{
+					base: $('#gstchk'),
+					condition: function(b){ return b.prop('checked'); },
+					t: function(){ ppc.user.set('guest', true); },
+					f: function(){ ppc.user.set('guest', false); },
+					on: {
+						change: true,
+					},
+				},
+				{
+					base: $('#rnkchk'),
+					condition: function(b){ return b.prop('checked'); },
+					t: function(){ ppc.user.set('vranking', true); },
+					f: function(){ ppc.user.set('vranking', false); },
+					on: {
+						change: true,
+					},
+				},
+				{
+					base: $('#check-enable-animation'),
+					condition: function(b){ return b.prop('checked'); },
+					t: function(){ ppc.user.set('animation', true); },
+					f: function(){ ppc.user.set('animation', false); },
+					on: {
+						change: true,
+					},
+				},
+				{
+					base: $('#ppcranking'),
+					condition: function(b){ return b.prop('checked'); },
+					t: function(){
+						$('#login_status .join').text('参加');
+						ppc.user.set('pranking', true);
+					},
+					f: function(){
+						$('#login_status .join').text('不参加（「環境設定」から変更できます）');
+						ppc.user.set('pranking', false);
+					},
+					on: {
+						change: true,
+					},
+				},
+			]);
+			this.set('self', self);
+		},
+	});
+
+})(jQuery);
 (function($){
 
 // Utility (static)
@@ -2186,17 +2789,16 @@ ppc.illusts = [];
 ]);
 
 // 主な処理はここから開始
-var $leftColumn = ppc.parser.get('jq', 'col_l');
-var $rightColumn = ppc.parser.get('jq', 'col_r');
 
-$('<div>', {id:'buttons', class:'right-container'}).prependTo('.layout-column-2');
-$('a', $leftColumn).attr('target', '_blank');
-$('.display_editable_works>ul>li>span').wrap('<div class="status" />');
+// ユーザーIDの取得
+var user_id = ppc.parser.home.get('attr', 'user_id', 'href').number(0);
+ppc.user.set('id', user_id);
 
-ppc.renderer.get('removeAds');
+var $leftColumn = ppc.parser.home.get('jq', 'col_l');
+var $rightColumn = ppc.parser.home.get('jq', 'col_r');
 
-$rightColumn.wrapInner('<div id="works" />');
-$rightColumn.wrap('<div id="tab_group" />');
+// DOM生成・削除
+ppc.renderer.get('init1');
 
 $('div.pages').fadeOut('slow');
 ppc.parser.created.get('jq', 'tab_group').fadeOut('slow',function(){
@@ -2204,110 +2806,10 @@ ppc.parser.created.get('jq', 'tab_group').fadeOut('slow',function(){
 	ppc.renderer.get('load').get('css', ppc.uri.get('css') + '/ppc' + ppc.admin.get('version').get('css'));
 	ppc.renderer.get('load').get('css', '//maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min');
 
-	ppc.parser.created.get('jq', 'tab_group').prepend(
-		$('<ul>').prepend(
-			$('<li>').prepend(
-				$('<a>').attr('href', '#works').prepend(
-					$('<span>').text('作品')
-				)
-			)
-		)
-	);
-
-	// タブ生成
-	ppc.parser.created.get('jq', 'tab_group').find('>ul')
-	.appendTab('pixivパワー', '#totalResult')
-	.appendTab('詳細', '#detail')
-	.appendTab('環境設定', '#conf')
-	.appendTab('ログ', '#ppcLog')
-	.appendTab('お知らせ', '#ppc-info')
-	.appendTab('PPCについて', '#ppc-about');
-
-	ppc.parser.created.get('jq', 'tab_group').find('>div')
-	.append($('<div>', {id: 'totalResult', class: 'ppcTab'}))
-	.append($('<div>', {id: 'detail', class: 'ppcTab'}))
-	.append($('<div>', {id: 'conf', class: 'ppcTab'}))
-	.append($('<div>', {id: 'ppcLog', class: 'ppcTab'}))
-	.append($('<div>', {id: 'ppc-info', class: 'ppcTab'}))
-	.append($('<div>', {id: 'ppc-about', class: 'ppcTab'}));
-
-	$('#totalResult')
-	.append(ppc.utility.get('tab', 'pixivパワーの測定結果','',1))
-	.append($('<div>', {
-		id: 'processing',
-		text: '測定中',
-	}))
-	.append($('<div>', {
-		id: 'processing-description',
-		text: '測定中です。何もせずにお待ちください。',
-	}));
-	$('#detail').append(ppc.utility.get('tab', '各作品の詳細','',0));
-	$('#conf').append(ppc.utility.get('tab', '環境設定','',1));
-	$('#ppcLog').append(ppc.utility.get('tab', '測定のログ','',1));
-	$('#ppc-info').append(ppc.utility.get('tab', 'お知らせ','',1)).find('.column-body').appendHtml('promotion', function(){});
-	$('#ppc-about').append(ppc.utility.get('tab', 'PPCについて','',1)).find('.column-body').appendHtml('about', function(){
-		ppc.renderer.get('update', '.ppc-version', ppc.admin.get('version').get('script'));
-	});
-
-	ppc.renderer.get('render').get('at',
-		'#ppcLog .column-body',
-		$('<ul>', {
-			id: 'ppc_log',
-			css: {
-				maxHeight: '500px',
-				overflow: 'scroll',
-			}
-		})
-	);
-
-	ppc.renderer.get('render').get('at',
-		'#conf .column-body',
-		$('<div>', {
-			id: 'configuration',
-		})
-	);
+	ppc.renderer.get('init2');
 
 	// 環境設定
 	$('#configuration').appendHtml('configuration', function(){
-		$('#gstchk').attr('checked', ppc.cookie.ppc.get('output', 'gstchk', true));
-		$('#gstchk').on('click', function(){
-			if ($(this).prop('checked')) {
-				ppc.cookie.ppc.get('input', 'gstchk', true);
-			}
-			else {
-				ppc.cookie.ppc.get('input', 'gstchk', false);
-			}
-			ppc.cookie.ppc.get('write');
-		});
-
-		$('#rnkchk').attr('checked', ppc.cookie.ppc.get('output', 'rnkchk', false));
-		$('#rnkchk').on('click', function(){
-			if ($(this).prop('checked')) {
-				ppc.cookie.ppc.get('input', 'rnkchk', true);
-			}
-			else {
-				ppc.cookie.ppc.get('input', 'rnkchk', false);
-			}
-			ppc.cookie.ppc.get('write');
-		});
-
-		$('#ppcranking').on('click', function(){
-			if ($(this).prop('checked')) {
-				$('#login_status .join').text('参加');
-				ppc.cookie.ppc.get('input', 'ppcranking', true);
-			}
-			else {
-				$('#login_status .join').text('不参加（「環境設定」から変更できます）');
-				ppc.cookie.ppc.get('input', 'ppcranking', false);
-			}
-			ppc.cookie.ppc.get('write');
-		});
-
-		$('#release' + ppc.cookie.ppc.get('output', 'release', '1')).attr('checked', true);
-		$('#release1,#release2,#release3').on('click', function(){
-			ppc.cookie.ppc.get('input', 'release', $(this).attr('value'));
-			ppc.cookie.ppc.get('write');
-		});
 
 		$('.help_trigger').hover(
 			function(){
@@ -2316,111 +2818,91 @@ ppc.parser.created.get('jq', 'tab_group').fadeOut('slow',function(){
 			function(){
 				$(this).parent().parent().children('td').children('.configuration_help').css('visibility', 'hidden');
 			}
+
 		);
 	});
 
-	$('#conf .column-body').appendHtml('ppcranking', function(){});
+	var verifyJQueryUI = function(){
 
-	// ゲストの情報を取得
-	$.getJSON(
-		ppc.uri.get('guest') + '?callback=?', function(data){
-			var guest_profile = new Object(data);
-			ppc.user.set('guest_profile', guest_profile);
-		}
-	);
+		var d = new $.Deferred();
+		// Wait until jQuery UI is completely loaded
+		var timer0 = window.setInterval(
 
-	// Wait until jQuery UI is completely loaded
-	var timer0 = window.setInterval(
-
-		function(){
-
-			try {
-
-				// タブ表示
-				ppc.parser.created.get('jq', 'tab_group').tabs({
-					selected: 5,
-					disabled: [1,2],
-					show: {
-						effect: 'fadeIn',
-						duration: 200,
-					},
-					hide: {
-						effect: 'fadeOut',
-						duration: 200,
-					}
-				}).fadeIn('slow');
-
-				clearInterval(timer0);
-				ppc.logger.get('add', 'jQuery UIを読み込みました', 0);
+			function(){
 
 				try {
-					// テンプレートをダウンロード
-					$.getJSON(ppc.uri.get('ajax') + '/page/template' + '?callback=?', {}, function(data){
-						var $html = $(data.html);
-						ppc.parser.template.set('$doc', $html);
-						ppc.logger.get('add', 'テンプレートをダウンロードしました', 0);
 
-						// 測定ボタンを生成
-						$html.find('#btn-ppc').appendTo('#buttons');
-
-						// 2ページ目があるかどうか確認
-						// 確認後、開始ボタンを利用可にする
-						if (ppc.parser.home.get('length', 'page2') > 0) {
-							ppc.logger.get('add', '21以上の作品が検出されました', 1);
-							ppc.ajax.page2.get('load');
+					// タブ表示
+					ppc.parser.created.get('jq', 'tab_group').tabs({
+						disabled: [1,2],
+						show: {
+							effect: 'fadeIn',
+							duration: 200,
+						},
+						hide: {
+							effect: 'fadeOut',
+							duration: 200,
 						}
-						else {
-							ppc.renderer.get('activateStartButton');
-						}
+					}).tabs('option', 'active', 5).fadeIn('slow');
 
-						// ログインステータスの表示
-						$('#buttons').appendHtml('login_status', function(){
-							if (window.addEventListener) {
-								window.addEventListener('message', function(e){
-									var data = JSON.parse(e.data);
-									if (e.origin === ppc.uri.get('home') || e.origin === ppc.uri.get('home') + '/') {
-										ppc.renderer.get('fillUserStatus', data);
-										ppc.renderer.get('fillRanking');
-									}
-								});
-							}
-							if (ppc.user.get('release') > 0) {
-								ppc.renderer.get('update', '#login_status .join', '参加');
-							}
-							else {
-								ppc.renderer.get('update', '#login_status .join', '不参加（「環境設定」から変更できます）');
-							}
-						});
+					clearInterval(timer0);
+					ppc.logger.get('add', 'jQuery UIを読み込みました', 0);
+					d.resolve();
 
-						// Twitterログインボタンの生成
-						ppc.renderer.get('render').get('at',
-							'#buttons',
-							$('<iframe>', {
-								id: 'login_with_twitter',
-								class: 'button',
-								name: 'login_with_twitter',
-								width: '120',
-								height: '34',
-								src: ppc.uri.get('home') + '/twitter/button',
-							})
-						);
-
-						// Tiwtterアイコン、screen nameの表示
-						ppc.renderer.get('render').get('at', '#buttons', $('<img>', {id:'profile_image'}));
-						ppc.renderer.get('render').get('at', '#buttons', $('<span>', {id:'screen_name', text:'Twitterとの連携でパワーの保存やランキングへの参加ができます'}));
-					});
 				}
-				catch (e) {
-					ppc.logger.get('error', e);
+				catch(e){
+					// ppc.logger.get('error', e);
 				}
 
-			}
-			catch(e){
-				// ppc.logger.get('error', e);
-			}
+			},100
+		);
 
-		},100
-	);
+		return d.promise();
+	};
+
+	// 並行処理
+	$.when(
+		verifyJQueryUI(), // 処理1
+		ppc.ajax.follower.get('load'), // 処理2
+		$.getJSON(ppc.uri.get('guest') + '?callback=?', function(data){ // 処理3
+			var guest_profile = new Object(data);
+			ppc.user.set('guest_profile', guest_profile);
+		})
+	)
+	// 上の3つの処理が終わったら実行（Loggerはここから使える）
+	.then(function(){
+
+		// セレクタ検証
+		ppc.parser.home.get('check');
+
+		try {
+			// テンプレートをダウンロード
+			$.getJSON(ppc.uri.get('ajax') + '/page/template' + '?callback=?', {}, function(data){
+				ppc.logger.get('add', 'テンプレートをダウンロードしました', 0);
+				var $html = $(data.html);
+				ppc.parser.template.set('$doc', $html);
+
+				ppc.renderer.get('init3');
+
+				// フォーム部品をすべて置いたのでsenbeiを発動させる
+				ppc.renderer.get('senbei');
+
+				// 2ページ目があるかどうか確認
+				// 確認後、開始ボタンを利用可にする
+				if (ppc.parser.home.get('length', 'page2') > 0) {
+					ppc.logger.get('add', '21以上の作品が検出されました', 1);
+					ppc.ajax.page2.get('load');
+				}
+				else {
+					ppc.renderer.get('activateStartButton');
+				}
+			});
+		}
+		catch (e) {
+			ppc.logger.get('error', e);
+		}
+	});
+
 });
 
 })(jQuery);
