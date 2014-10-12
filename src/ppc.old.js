@@ -85,12 +85,16 @@ ppc.old = cloz(base, {
 
 			$('#ppc_result').show();
 
+			// 連続処理
 			this.get('_step1').then(function(){
 				return ppc.old.get('_wait1');
 			}).then(function(){
 				return ppc.old.get('_step2');
 			}).then(function(){
-				return ppc.old.get('_wait2');
+				return $.when(
+					ppc.old.get('_wait2'),
+					ppc.old.get('_save') // パワーの保存
+				);
 			}).then(function(){
 				ppc.logger.get('add', 'すべての処理が完了しました', 0);
 			});
@@ -134,25 +138,25 @@ ppc.old = cloz(base, {
 		var d = new $.Deferred();
 		window.setTimeout(function(){
 			$('#ppc_left')
-			.append(
-				$('<div>', {
-					class: 'bonus',
-					text: 'フォロワー補正： +' + (ppc.user.get('followers') * 0.01).toFixed(2) + '%',
-				})
-			)
-			.append(
-				$('<div>', {
-					class: 'bonus',
-					text: 'マイピク補正： +' + (ppc.user.get('my_pixiv') * 0.1).toFixed(1) + '%',
-				})
-			)
-			.append(
-				$('<div>', {
-					class: 'bonus',
-					text: '勢い補正： +' + ppc.user.get('hot_sum').comma(),
-				})
-			)
-			.find('.bonus').fadeIn();
+				.append(
+					$('<div>', {
+						class: 'bonus',
+						text: 'フォロワー補正： +' + (ppc.user.get('followers') * 0.01).toFixed(2) + '%',
+					})
+				)
+				.append(
+					$('<div>', {
+						class: 'bonus',
+						text: 'マイピク補正： +' + (ppc.user.get('my_pixiv') * 0.1).toFixed(1) + '%',
+					})
+				)
+				.append(
+					$('<div>', {
+						class: 'bonus',
+						text: '勢い補正： +' + ppc.user.get('hot_sum').comma(),
+					})
+				)
+				.find('.bonus').fadeIn();
 			d.resolve();
 		}, 1500);
 
@@ -278,10 +282,13 @@ ppc.old = cloz(base, {
 				$('<div>').fadeIn().html('投稿数: <span>' + ppc.user.get('posted') +'</span>').insertBefore('#ppc_left>div:first');
 
 				// 仮想順位の表示
-				if(ppc.cookie.ppc.get('output', 'rnkchk', false)){
+				if (ppc.cookie.ppc.get('output', 'rnkchk', false)){
 					ppc.renderer.get('update', '.order-vranking', vranking);
 					ppc.cookie.ppc.get('input', 'ranking', vranking);
 					ppc.cookie.ppc.get('write');
+				}
+				else {
+					$('#vranking').css('display', 'none');
 				}
 
 				$('<br>').appendTo('#ppc_result');
@@ -345,9 +352,6 @@ ppc.old = cloz(base, {
 				ppc.logger.get('error', e);
 				return false;
 			}
-
-			// パワーの保存
-			self.get('_save');
 
 			// タイムラインの埋め込み
 			$('<a>', {
@@ -414,6 +418,7 @@ ppc.old = cloz(base, {
 
 	},
 	_save: function(){
+		var d = new $.Deferred();
 		var pixiv_power = ppc.user.get('pixiv_power');
 		var last_power = ppc.user.get('last_power');
 		try {
@@ -427,84 +432,90 @@ ppc.old = cloz(base, {
 
 				$('<div>', {id:'ppc_neighbors'}).appendTo('#totalResult .column-body');
 
-				$.getJSON(ppc.uri.get('record') + '?callback=?',
-					{
+				$.getJSON(ppc.uri.get('record') + '?callback=?', {
 						User: {pixiv_id: ppc.user.get('id'), twitter_name: ppc.user.get('twitter_name'), name: ppc.user.get('name')},
 						PpcPower: {power: pixiv_power, release: release},
 						token: ppc.user.get('token'),
-					},
-					function(data){
-						if (data.status == 'ok') {
-							var target = $('#login_status').find('.updown:first'),
-								updown = pixiv_power - last_power,
-								text = 'pixivパワーを保存しました';
-
-							if (updown >= 0) {
-								updown = '(+' + updown.comma() + ')';
-								target.addClass('up').text(updown);
-							}
-							else {
-								updown = '(' + updown.comma() + ')';
-								target.addClass('down').text(updown);
-							}
-							ppc.renderer.get('update', '#login_status .last_power:first', pixiv_power.comma());
-							ppc.renderer.get('fillRanking');
-
-							if (release == 1) {
-								text += '（ランキングにTwitterとpixivを公開）';
-							}
-							else if (release == 2) {
-								text += '（ランキングにTwitterのみ公開）';
-							}
-							else if (release == 3) {
-								text += '（ランキングに匿名で公開）';
-							}
-							ppc.logger.get('add', text, 0);
-
-							if (data.neighbors.length) {
-								ppc.renderer.get('update', '#neighbors-mes', 'あなたとpixivパワーが近いユーザー（Twitterとpixivを公開しているユーザーのみ表示）');
-								$.each(data.neighbors, function(i, v){
-									var img = v.User.twitter_image;
-
-									if (img.substr(7, 10) !== ppc.admin.get('canonical_domain')) {
-										img = ppc.uri.get('img') + '/profile.png';
-									}
-									$('<div>', {class:'ppc-unit'})
-									.append(
-										$('<div>',{class:'ppc-power',text: Number(v.PpcPower.power).comma()})
-									)
-									.append(
-										$('<a>',{class:'twitter-image',href:'http://twitter.com/' + v.User.twitter_name, target:'_blank'})
-										.append(
-											$('<img>',{width:'48',height:'48',border:'0',alt:v.User.name,src:img})
-										)
-									)
-									.append(
-										$('<a>',{href:'http://twitter.com/' + v.User.twitter_name, target:'_blank'})
-										.append(
-											$('<div>',{class:'ppc-name',text:v.User.name})
-										)
-									)
-									.append(
-										$('<a>',{href:'http://www.pixiv.net/member.php?id=' + v.User.pixiv_id, target:'_blank'})
-										.append(
-											$('<div>',{class:'ppc-pixiv_id',text:'(' + v.User.pixiv_id + ')'})
-										)
-									)
-									.appendTo('#ppc_neighbors');
-								});
-							}
-							else {
-								ppc.renderer.get('update', '#neightbors-mes', 'あなたとpixivパワーが近い公開ユーザーはいません');
-							}
-						}
-						else if (data.status == 'error') {
-							ppc.logger.get('error', data);
-						}
 					}
-				);
+				).then(function(data){
+					if (data.status == 'ok') {
+						var target = $('#login_status').find('.updown:first'),
+							updown = pixiv_power - last_power,
+							text = 'pixivパワーを保存しました';
+
+						if (updown >= 0) {
+							updown = '(+' + updown.comma() + ')';
+							target.addClass('up').text(updown);
+						}
+						else {
+							updown = '(' + updown.comma() + ')';
+							target.addClass('down').text(updown);
+						}
+						ppc.renderer.get('update', '#login_status .last_power:first', pixiv_power.comma());
+						ppc.renderer.get('fillRanking');
+
+						if (release == 1) {
+							text += '（ランキングにTwitterとpixivを公開）';
+						}
+						else if (release == 2) {
+							text += '（ランキングにTwitterのみ公開）';
+						}
+						else if (release == 3) {
+							text += '（ランキングに匿名で公開）';
+						}
+						ppc.logger.get('add', text, 0);
+
+						if (data.neighbors.length) {
+							ppc.renderer.get('update', '#neighbors-mes', 'あなたとpixivパワーが近いユーザー（Twitterとpixivを公開しているユーザーのみ表示）');
+							$.each(data.neighbors, function(i, v){
+								var img = v.User.twitter_image;
+
+								if (img.substr(7, 10) !== ppc.admin.get('canonical_domain')) {
+									img = ppc.uri.get('img') + '/profile.png';
+								}
+								$('<div>', {class:'ppc-unit'})
+								.append(
+									$('<div>',{class:'ppc-power',text: Number(v.PpcPower.power).comma()})
+								)
+								.append(
+									$('<a>',{class:'twitter-image',href:'http://twitter.com/' + v.User.twitter_name, target:'_blank'})
+									.append(
+										$('<img>',{width:'48',height:'48',border:'0',alt:v.User.name,src:img})
+									)
+								)
+								.append(
+									$('<a>',{href:'http://twitter.com/' + v.User.twitter_name, target:'_blank'})
+									.append(
+										$('<div>',{class:'ppc-name',text:v.User.name})
+									)
+								)
+								.append(
+									$('<a>',{href:'http://www.pixiv.net/member.php?id=' + v.User.pixiv_id, target:'_blank'})
+									.append(
+										$('<div>',{class:'ppc-pixiv_id',text:'(' + v.User.pixiv_id + ')'})
+									)
+								)
+								.appendTo('#ppc_neighbors');
+							});
+						}
+						else {
+							ppc.renderer.get('update', '#neightbors-mes', 'あなたとpixivパワーが近い公開ユーザーはいません');
+						}
+
+						d.resolve();
+					}
+					else if (data.status == 'error') {
+						ppc.logger.get('error', data);
+						return false;
+					}
+				});
 
 			}
+			else {
+				d.resolve();
+			}
+
+			return d.promise();
 		}
 		catch (e) {
 			ppc.logger.get('error', e);
