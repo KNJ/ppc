@@ -428,10 +428,6 @@ ppc.old = cloz(base, {
 					release = $('input[name="release"]:checked').attr('value');
 				}
 
-				$('<div>', {id:'neighbors-mes'}).appendTo('#totalResult .column-body');
-
-				$('<div>', {id:'ppc_neighbors'}).appendTo('#totalResult .column-body');
-
 				$.getJSON(ppc.uri.get('record') + '?callback=?', {
 						User: {pixiv_id: ppc.user.get('id'), twitter_name: ppc.user.get('twitter_name'), name: ppc.user.get('name')},
 						PpcPower: {power: pixiv_power, release: release},

@@ -78,6 +78,7 @@ ppc.renderer = cloz(base, {
 				id: 'processing-description',
 				text: '測定中です。何もせずにお待ちください。',
 			}));
+
 		$('#detail').append(ppc.utility.get('tab', '各作品の詳細','',0));
 		$('#conf').append(ppc.utility.get('tab', '環境設定','',1));
 		$('#ppcLog').append(ppc.utility.get('tab', '測定のログ','',1));
@@ -175,10 +176,27 @@ ppc.renderer = cloz(base, {
 		ppc.renderer.get('render').get('at', '#ppc_right', ppc.parser.template.get('jq', 'summary'));
 
 		// ツイートボタン
-		$('<div>', {id: 'tweet'}).appendTo('#ppc_right');
-		$('<button>', {id: 'btn-tweet', class: 'ppc-button', html: '<i class="fa fa-twitter"></i>結果をツイート'}).appendTo('#tweet');
-		$('<br><input type="checkbox" id="pidchk"><label for="pidchk">pixivへのリンクを載せる</label>').appendTo('#tweet');
-		$('#pidchk').attr('checked', ppc.cookie.ppc.get('output', 'pidchk', true));
+		$('<div>', {id: 'tweet'}).appendTo('#ppc_right')
+			.append($('<button>', {
+				id: 'btn-tweet',
+				class: 'ppc-button',
+				html: '<i class="fa fa-twitter"></i>結果をツイート',
+			}))
+			.append('<br>')
+			.append($('<input type="checkbox">').attr({ // type属性は後から追加できない模様
+				id: 'pidchk',
+				class: 'senbei',
+				name: 'add-pixiv',
+				value: '1',
+			}))
+			.append($('<label>', {
+				for: 'pidchk',
+				text: 'pixivへのリンクを載せる',
+			}));
+
+		// パワーの近いユーザー
+		$('<div>', {id:'neighbors-mes'}).appendTo('#totalResult .column-body');
+		$('<div>', {id:'ppc_neighbors'}).appendTo('#totalResult .column-body');
 
 		// ソート切り替えナビゲーション挿入
 		$('<div>', {
