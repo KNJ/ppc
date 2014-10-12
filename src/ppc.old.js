@@ -96,6 +96,7 @@ ppc.old = cloz(base, {
 					ppc.old.get('_save') // パワーの保存
 				);
 			}).then(function(){
+				ppc.old.get('_showNeighbors');
 				ppc.logger.get('add', 'すべての処理が完了しました', 0);
 			});
 
@@ -434,6 +435,10 @@ ppc.old = cloz(base, {
 						token: ppc.user.get('token'),
 					}
 				).then(function(data){
+
+					// パワーの近いユーザー
+					ppc.user.set('neighbors', data.neighbors);
+
 					if (data.status == 'ok') {
 						var target = $('#login_status').find('.updown:first'),
 							updown = pixiv_power - last_power,
@@ -461,43 +466,6 @@ ppc.old = cloz(base, {
 						}
 						ppc.logger.get('add', text, 0);
 
-						if (data.neighbors.length) {
-							ppc.renderer.get('update', '#neighbors-mes', 'あなたとpixivパワーが近いユーザー（Twitterとpixivを公開しているユーザーのみ表示）');
-							$.each(data.neighbors, function(i, v){
-								var img = v.User.twitter_image;
-
-								if (img.substr(7, 10) !== ppc.admin.get('canonical_domain')) {
-									img = ppc.uri.get('img') + '/profile.png';
-								}
-								$('<div>', {class:'ppc-unit'})
-								.append(
-									$('<div>',{class:'ppc-power',text: Number(v.PpcPower.power).comma()})
-								)
-								.append(
-									$('<a>',{class:'twitter-image',href:'http://twitter.com/' + v.User.twitter_name, target:'_blank'})
-									.append(
-										$('<img>',{width:'48',height:'48',border:'0',alt:v.User.name,src:img})
-									)
-								)
-								.append(
-									$('<a>',{href:'http://twitter.com/' + v.User.twitter_name, target:'_blank'})
-									.append(
-										$('<div>',{class:'ppc-name',text:v.User.name})
-									)
-								)
-								.append(
-									$('<a>',{href:'http://www.pixiv.net/member.php?id=' + v.User.pixiv_id, target:'_blank'})
-									.append(
-										$('<div>',{class:'ppc-pixiv_id',text:'(' + v.User.pixiv_id + ')'})
-									)
-								)
-								.appendTo('#ppc_neighbors');
-							});
-						}
-						else {
-							ppc.renderer.get('update', '#neightbors-mes', 'あなたとpixivパワーが近い公開ユーザーはいません');
-						}
-
 						d.resolve();
 					}
 					else if (data.status == 'error') {
@@ -517,6 +485,52 @@ ppc.old = cloz(base, {
 			ppc.logger.get('error', e);
 			return false;
 		}
+	},
+	_showNeighbors: function(){
+
+		// twitter連携してないとneighborsが取得できないので…（パワーを送信する必要が生じるため）
+		if (ppc.user.get('twitter')) {
+			var neighbors = ppc.user.get('neighbors');
+			if (neighbors.length) {
+				ppc.renderer.get('update', '#neighbors-mes', 'あなたとpixivパワーが近いユーザー（Twitterとpixivを公開しているユーザーのみ表示）');
+				$.each(neighbors, function(i, v){
+					var img = v.User.twitter_image;
+
+					if (img.substr(7, 10) !== ppc.admin.get('canonical_domain')) {
+						img = ppc.uri.get('img') + '/profile.png';
+					}
+					$('<div>', {class:'ppc-unit'})
+					.append(
+						$('<div>',{class:'ppc-power',text: Number(v.PpcPower.power).comma()})
+					)
+					.append(
+						$('<a>',{class:'twitter-image',href:'http://twitter.com/' + v.User.twitter_name, target:'_blank'})
+						.append(
+							$('<img>',{width:'48',height:'48',border:'0',alt:v.User.name,src:img})
+						)
+					)
+					.append(
+						$('<a>',{href:'http://twitter.com/' + v.User.twitter_name, target:'_blank'})
+						.append(
+							$('<div>',{class:'ppc-name',text:v.User.name})
+						)
+					)
+					.append(
+						$('<a>',{href:'http://www.pixiv.net/member.php?id=' + v.User.pixiv_id, target:'_blank'})
+						.append(
+							$('<div>',{class:'ppc-pixiv_id',text:'(' + v.User.pixiv_id + ')'})
+						)
+					)
+					.appendTo('#ppc_neighbors');
+				});
+			}
+			else {
+				ppc.renderer.get('update', '#neightbors-mes', 'あなたとpixivパワーが近い公開ユーザーはいません');
+			}
+			$('#neighbors-mes, #ppc_neighbors').show();
+		}
+
+		return;
 	},
 	// 作品詳細の並べ替え
 	arrange: function(text, illusts, order){

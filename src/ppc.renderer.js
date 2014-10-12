@@ -183,20 +183,22 @@ ppc.renderer = cloz(base, {
 				html: '<i class="fa fa-twitter"></i>結果をツイート',
 			}))
 			.append('<br>')
-			.append($('<input type="checkbox">').attr({ // type属性は後から追加できない模様
-				id: 'pidchk',
-				class: 'senbei',
-				name: 'add-pixiv',
-				value: '1',
-			}))
+			.append($('<input type="checkbox" checked>') // type属性は後から追加できない模様
+				.attr({
+					id: 'pidchk',
+					class: 'senbei',
+					name: 'add-pixiv',
+					value: '1',
+				}))
 			.append($('<label>', {
 				for: 'pidchk',
 				text: 'pixivへのリンクを載せる',
 			}));
 
 		// パワーの近いユーザー
-		$('<div>', {id:'neighbors-mes'}).appendTo('#totalResult .column-body');
-		$('<div>', {id:'ppc_neighbors'}).appendTo('#totalResult .column-body');
+		$('#totalResult .column-body')
+			.append($('<div>', {id: 'neighbors-mes'}).css('display', 'none'))
+			.append($('<div>', {id: 'ppc_neighbors'}).css('display', 'none'));
 
 		// ソート切り替えナビゲーション挿入
 		$('<div>', {
