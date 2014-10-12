@@ -82,45 +82,6 @@ ppc.parser.created.get('jq', 'tab_group').fadeOut('slow',function(){
 
 	// 環境設定
 	$('#configuration').appendHtml('configuration', function(){
-		$('#gstchk').attr('checked', ppc.cookie.ppc.get('output', 'gstchk', true));
-		$('#gstchk').on('click', function(){
-			if ($(this).prop('checked')) {
-				ppc.cookie.ppc.get('input', 'gstchk', true);
-			}
-			else {
-				ppc.cookie.ppc.get('input', 'gstchk', false);
-			}
-			ppc.cookie.ppc.get('write');
-		});
-
-		$('#rnkchk').attr('checked', ppc.cookie.ppc.get('output', 'rnkchk', false));
-		$('#rnkchk').on('click', function(){
-			if ($(this).prop('checked')) {
-				ppc.cookie.ppc.get('input', 'rnkchk', true);
-			}
-			else {
-				ppc.cookie.ppc.get('input', 'rnkchk', false);
-			}
-			ppc.cookie.ppc.get('write');
-		});
-
-		$('#ppcranking').on('click', function(){
-			if ($(this).prop('checked')) {
-				$('#login_status .join').text('参加');
-				ppc.cookie.ppc.get('input', 'ppcranking', true);
-			}
-			else {
-				$('#login_status .join').text('不参加（「環境設定」から変更できます）');
-				ppc.cookie.ppc.get('input', 'ppcranking', false);
-			}
-			ppc.cookie.ppc.get('write');
-		});
-
-		$('#release' + ppc.cookie.ppc.get('output', 'release', '1')).attr('checked', true);
-		$('#release1,#release2,#release3').on('click', function(){
-			ppc.cookie.ppc.get('input', 'release', $(this).attr('value'));
-			ppc.cookie.ppc.get('write');
-		});
 
 		$('.help_trigger').hover(
 			function(){
@@ -129,6 +90,7 @@ ppc.parser.created.get('jq', 'tab_group').fadeOut('slow',function(){
 			function(){
 				$(this).parent().parent().children('td').children('.configuration_help').css('visibility', 'hidden');
 			}
+
 		);
 	});
 
