@@ -3,12 +3,12 @@
 	// Senbei
 	ppc.senbei = cloz(base,{
 		self: null,
+		storage: null,
 		init: function(){
 			var self = senbei({
 				name: 'ppc' + ppc.user.get('id'),
 				read: 'localStorage',
-				write: 'localStorage',
-				// write: ['localStorage', function(s){ppc.storage = s;}]
+				write: ['localStorage', function(s){ ppc.senbei.set('storage', s); }]
 			},[
 				{
 					base: $('#gstchk'),
