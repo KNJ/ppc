@@ -3,12 +3,7 @@
 // Parser
 ppc.parser = cloz(base, {
 	$doc: $(document),
-	selector: cloz(base, {
-		col_l: '.layout-a .ui-layout-west',
-		col_r: '.layout-a ._unit',
-		nickname: '.user-name:first',
-		tags: '.tags:first',
-	}),
+	selector: null,
 	text: function(key){
 		return this.get('$doc').find(this.get('selector').get(key)).text();
 	},
@@ -28,8 +23,11 @@ ppc.parser = cloz(base, {
 		return this.get('$doc').find(this.get('selector').get(key));
 	},
 	check: function(){
-		for (var k in this.get('selector')) {
-			console.log(this.get('selector').get(key) + ' => ' + $(this.get('selector').get(key)).length);
+		for (var k in this.get('selector').getAll()) {
+			var len = $(this.get('selector').get(k)).length,
+				message = 'セレクタ検証(' + k + ') => ' + len,
+				level = len ? 1 : 2;
+			ppc.logger.get('add', message, level);
 		}
 	},
 });
@@ -37,6 +35,8 @@ ppc.parser = cloz(base, {
 // parser - イラスト管理ページ(member_illust.php)
 ppc.parser.home = cloz(ppc.parser, {
 	selector: cloz(base, {
+		col_l: '.layout-a .ui-layout-west',
+		col_r: '.layout-a ._unit',
 		contents: '#wrapper',
 		illust: '.display_editable_works>ul>li',
 		illust_anchor: '.display_editable_works a[href^="member_illust.php?mode=medium&illust_id="]',

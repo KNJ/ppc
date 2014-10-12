@@ -66,8 +66,8 @@ ppc.illusts = [];
 var user_id = ppc.parser.home.get('attr', 'user_id', 'href').number(0);
 ppc.user.set('id', user_id);
 
-var $leftColumn = ppc.parser.get('jq', 'col_l');
-var $rightColumn = ppc.parser.get('jq', 'col_r');
+var $leftColumn = ppc.parser.home.get('jq', 'col_l');
+var $rightColumn = ppc.parser.home.get('jq', 'col_r');
 
 // DOM生成・削除
 ppc.renderer.get('init1');
@@ -142,8 +142,12 @@ ppc.parser.created.get('jq', 'tab_group').fadeOut('slow',function(){
 			ppc.user.set('guest_profile', guest_profile);
 		})
 	)
-	// 上の3つの処理が終わったら実行
+	// 上の3つの処理が終わったら実行（Loggerはここから使える）
 	.then(function(){
+
+		// セレクタ検証
+		ppc.parser.home.get('check');
+
 		try {
 			// テンプレートをダウンロード
 			$.getJSON(ppc.uri.get('ajax') + '/page/template' + '?callback=?', {}, function(data){

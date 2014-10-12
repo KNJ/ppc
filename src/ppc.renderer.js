@@ -27,8 +27,8 @@ ppc.renderer = cloz(base, {
 		});
 	},
 	init1: function(){
-		var $leftColumn = ppc.parser.get('jq', 'col_l');
-		var $rightColumn = ppc.parser.get('jq', 'col_r');
+		var $leftColumn = ppc.parser.home.get('jq', 'col_l');
+		var $rightColumn = ppc.parser.home.get('jq', 'col_r');
 
 		// レイアウト上、邪魔になる要素を削除
 		this.get('removeAds');
