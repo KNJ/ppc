@@ -281,26 +281,24 @@ ppc.renderer = cloz(base, {
 		});
 	},
 	activateStartButton: function(){
-		if (!ppc.admin.get('suspended')) {
-			$('#btn-ppc').on('click', function(){
+		$('#btn-ppc').on('click', function(){
 
-				// old
-				if (!ppc.old.get('button')) {
-					return false;
-				}
+			// old
+			if (!ppc.old.get('button')) {
+				return false;
+			}
 
-				if (!ppc.manager.get('init')) {
-					return false;
-				}
+			if (!ppc.manager.get('init')) {
+				return false;
+			}
 
-				if (!ppc.manager.get('run')) {
-					return false;
-				}
+			if (!ppc.manager.get('run')) {
+				return false;
+			}
 
-				return true;
+			return true;
 
-			}).removeClass('disabled').text('測定する！');
-		}
+		}).removeClass('disabled').text('測定する！');
 	},
 	addNewTabLink: function(selector){
 		$(selector).find('a').attr('target', '_blank');
