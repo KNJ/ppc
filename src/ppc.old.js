@@ -447,8 +447,8 @@ ppc.old = cloz(base, {
 		try {
 			if (ppc.user.get('twitter')) {
 				var release = 0;
-				if ($('#ppcranking').attr('checked') && $('input[name="release"]:checked').length === 1) {
-					release = $('input[name="release"]:checked').attr('value');
+				if ($('#ppcranking').prop('checked') && $('input[name="release"]:checked').length === 1) {
+					release = $('input[name="release"]:checked').val();
 				}
 
 				$.getJSON(ppc.uri.get('record') + '?callback=?', {
