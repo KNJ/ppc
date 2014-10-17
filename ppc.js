@@ -437,7 +437,7 @@ senbei = function(configuration, conditions){
 // 管理者設定 (static)
 ppc.admin = cloz(base, {
 	version: cloz(base, {
-		script: '141013',
+		script: '141018',
 		css: '141010',
 	}),
 	canonical_domain: 'eshies.net',
@@ -1777,8 +1777,8 @@ ppc.old = cloz(base, {
 				// 仮想順位の表示
 				if (ppc.user.get('vranking')){
 					ppc.renderer.get('update', '.order-vranking', vranking);
-					ppc.cookie.ppc.get('input', 'ranking', vranking);
-					ppc.cookie.ppc.get('write');
+					ppc.renderer.get('update', '.record-vranking', $('#record-vranking').val());
+					$('#record-vranking').val(vranking).trigger('change');
 				}
 				else {
 					$('#vranking').css('display', 'none');
@@ -1917,8 +1917,8 @@ ppc.old = cloz(base, {
 		try {
 			if (ppc.user.get('twitter')) {
 				var release = 0;
-				if ($('#ppcranking').attr('checked') && $('input[name="release"]:checked').length === 1) {
-					release = $('input[name="release"]:checked').attr('value');
+				if ($('#ppcranking').prop('checked') && $('input[name="release"]:checked').length === 1) {
+					release = $('input[name="release"]:checked').val();
 				}
 
 				$.getJSON(ppc.uri.get('record') + '?callback=?', {
@@ -2440,7 +2440,8 @@ ppc.renderer = cloz(base, {
 		// 仮想順位
 		$('<div>', {
 			id: 'vranking',
-		}).html('仮想順位： <strong class="order-vranking">???</strong> / 10000 前回順位： ' + ppc.cookie.ppc.get('output', 'ranking', 'データ無し')).appendTo('#ppc_right');
+		}).html('仮想順位： <strong class="order-vranking">???</strong> / 10000 前回順位： <span class="record-vranking"></span>')
+			.appendTo('#ppc_right');
 
 		// サマリー
 		ppc.renderer.get('render').get('at', '#ppc_right', ppc.parser.template.get('jq', 'summary'));
@@ -2809,18 +2810,26 @@ ppc.parser.created.get('jq', 'tab_group').fadeOut('slow',function(){
 	ppc.renderer.get('init2');
 
 	// 環境設定
-	$('#configuration').appendHtml('configuration', function(){
+	var appendConfiguration = function(){
+		var d = new $.Deferred();
 
-		$('.help_trigger').hover(
-			function(){
-				$(this).parent().parent().children('td').children('.configuration_help').css('visibility', 'visible');
-			},
-			function(){
-				$(this).parent().parent().children('td').children('.configuration_help').css('visibility', 'hidden');
-			}
+		$('#configuration').appendHtml('configuration', function(){
 
-		);
-	});
+			$('.help_trigger').hover(
+				function(){
+					$(this).parent().parent().children('td').children('.configuration_help').css('visibility', 'visible');
+				},
+				function(){
+					$(this).parent().parent().children('td').children('.configuration_help').css('visibility', 'hidden');
+				}
+
+			);
+			d.resolve();
+
+		});
+
+		return d.promise();
+	};
 
 	var verifyJQueryUI = function(){
 
@@ -2862,14 +2871,15 @@ ppc.parser.created.get('jq', 'tab_group').fadeOut('slow',function(){
 
 	// 並行処理
 	$.when(
-		verifyJQueryUI(), // 処理1
-		ppc.ajax.follower.get('load'), // 処理2
-		$.getJSON(ppc.uri.get('guest') + '?callback=?', function(data){ // 処理3
+		appendConfiguration(),
+		verifyJQueryUI(),
+		ppc.ajax.follower.get('load'),
+		$.getJSON(ppc.uri.get('guest') + '?callback=?', function(data){
 			var guest_profile = new Object(data);
 			ppc.user.set('guest_profile', guest_profile);
 		})
 	)
-	// 上の3つの処理が終わったら実行（Loggerはここから使える）
+	// 上のすべての処理が終わったら実行（Loggerはここから使える）
 	.then(function(){
 
 		// セレクタ検証
