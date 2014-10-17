@@ -307,8 +307,8 @@ ppc.old = cloz(base, {
 				// 仮想順位の表示
 				if (ppc.user.get('vranking')){
 					ppc.renderer.get('update', '.order-vranking', vranking);
-					ppc.cookie.ppc.get('input', 'ranking', vranking);
-					ppc.cookie.ppc.get('write');
+					ppc.renderer.get('update', '.record-vranking', $('#record-vranking').val());
+					$('#record-vranking').val(vranking).trigger('change');
 				}
 				else {
 					$('#vranking').css('display', 'none');

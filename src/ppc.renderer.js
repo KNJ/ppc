@@ -170,7 +170,8 @@ ppc.renderer = cloz(base, {
 		// 仮想順位
 		$('<div>', {
 			id: 'vranking',
-		}).html('仮想順位： <strong class="order-vranking">???</strong> / 10000 前回順位： ' + ppc.cookie.ppc.get('output', 'ranking', 'データ無し')).appendTo('#ppc_right');
+		}).html('仮想順位： <strong class="order-vranking">???</strong> / 10000 前回順位： <span class="record-vranking"></span>')
+			.appendTo('#ppc_right');
 
 		// サマリー
 		ppc.renderer.get('render').get('at', '#ppc_right', ppc.parser.template.get('jq', 'summary'));

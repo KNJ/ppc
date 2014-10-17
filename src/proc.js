@@ -81,18 +81,26 @@ ppc.parser.created.get('jq', 'tab_group').fadeOut('slow',function(){
 	ppc.renderer.get('init2');
 
 	// 環境設定
-	$('#configuration').appendHtml('configuration', function(){
+	var appendConfiguration = function(){
+		var d = new $.Deferred();
 
-		$('.help_trigger').hover(
-			function(){
-				$(this).parent().parent().children('td').children('.configuration_help').css('visibility', 'visible');
-			},
-			function(){
-				$(this).parent().parent().children('td').children('.configuration_help').css('visibility', 'hidden');
-			}
+		$('#configuration').appendHtml('configuration', function(){
 
-		);
-	});
+			$('.help_trigger').hover(
+				function(){
+					$(this).parent().parent().children('td').children('.configuration_help').css('visibility', 'visible');
+				},
+				function(){
+					$(this).parent().parent().children('td').children('.configuration_help').css('visibility', 'hidden');
+				}
+
+			);
+			d.resolve();
+
+		});
+
+		return d.promise();
+	};
 
 	var verifyJQueryUI = function(){
 
@@ -134,14 +142,15 @@ ppc.parser.created.get('jq', 'tab_group').fadeOut('slow',function(){
 
 	// 並行処理
 	$.when(
-		verifyJQueryUI(), // 処理1
-		ppc.ajax.follower.get('load'), // 処理2
-		$.getJSON(ppc.uri.get('guest') + '?callback=?', function(data){ // 処理3
+		appendConfiguration(),
+		verifyJQueryUI(),
+		ppc.ajax.follower.get('load'),
+		$.getJSON(ppc.uri.get('guest') + '?callback=?', function(data){
 			var guest_profile = new Object(data);
 			ppc.user.set('guest_profile', guest_profile);
 		})
 	)
-	// 上の3つの処理が終わったら実行（Loggerはここから使える）
+	// 上のすべての処理が終わったら実行（Loggerはここから使える）
 	.then(function(){
 
 		// セレクタ検証
